@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useWatchHistory } from '@/hooks/use-watch-history';
+import { useWatchHistory, WatchHistoryItem } from '@/hooks/use-watch-history';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { formatDistanceToNow } from 'date-fns';
-import { History, PlayCircle } from 'lucide-react';
+import { History, PlayCircle, PlusCircle } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -14,9 +14,31 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { AppHeader } from '@/components/app-header';
+import { useSeries } from '@/hooks/use-series';
+import { useToast } from '@/hooks/use-toast';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 export default function HistoryPage() {
   const { history, clearHistory } = useWatchHistory();
+  const { series, addVideoToSeries } = useSeries();
+  const { toast } = useToast();
+
+  const handleAddVideoToSeries = (seriesId: string, video: WatchHistoryItem) => {
+    const targetSeries = series.find(s => s.id === seriesId);
+    if (targetSeries?.videos.some(v => v.id === video.id)) {
+        toast({
+            variant: 'destructive',
+            title: "Already in series",
+            description: `"${video.title}" is already in "${targetSeries?.title}".`
+        });
+        return;
+    }
+    addVideoToSeries(seriesId, video);
+    toast({
+      title: "Video Added",
+      description: `"${video.title}" has been added to "${targetSeries?.title}".`
+    });
+  };
 
   return (
     <TooltipProvider>
@@ -67,13 +89,40 @@ export default function HistoryPage() {
                     <Progress value={(item.lastPositionSeconds / item.durationSeconds) * 100} className="w-full" />
                   ) : <div className='h-2'/>}
                 </CardContent>
-                <CardFooter>
-                  <Button asChild className="w-full">
+                <CardFooter className="flex gap-2">
+                  <Button asChild className="flex-grow">
                     <Link href={`/?historyId=${item.id}`}>
                       <PlayCircle className="w-4 h-4 mr-2" />
                       Resume
                     </Link>
                   </Button>
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="icon">
+                            <PlusCircle className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Add to series</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent>
+                        <DropdownMenuLabel>Add to a Series</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {series.length > 0 ? series.map(s => (
+                            <DropdownMenuItem key={s.id} onClick={() => handleAddVideoToSeries(s.id, item)}>
+                                {s.title}
+                            </DropdownMenuItem>
+                        )) : <DropdownMenuItem disabled>No series available</DropdownMenuItem>}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                            <Link href="/series">Manage Series</Link>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </CardFooter>
               </Card>
             ))}

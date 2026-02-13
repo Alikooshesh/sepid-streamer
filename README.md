@@ -15,7 +15,7 @@ Here are some features to implement next to complete the video player applicatio
 - [x] **Implement Separate Audio Tracks:**
     - In `src/app/page.tsx`, under the "Audio" tab, add functionality to load a separate audio file to be played with the video.
 
-- [ ] **Build the Series Page:**
+- [x] **Build the Series Page:**
     - The `src/app/series/page.tsx` is currently a placeholder.
     - Implement functionality to group videos into a series, manage series, and play them in order.
 
@@ -24,4 +24,5 @@ Here are some features to implement next to complete the video player applicatio
         - Generating video transcripts from the audio.
         - Summarizing video content.
         - Automatically creating video chapters.
+
 
