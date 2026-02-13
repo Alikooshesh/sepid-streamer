@@ -51,8 +51,8 @@ export function VideoPlayer({
     const video = videoRef.current;
     if (video) {
         onInternalTracksChangeRef.current({
-            text: Array.from(video.textTracks),
-            audio: Array.from(video.audioTracks),
+            text: video.textTracks ? Array.from(video.textTracks) : [],
+            audio: video.audioTracks ? Array.from(video.audioTracks) : [],
         });
     }
   }, []);
@@ -72,13 +72,21 @@ export function VideoPlayer({
     };
     
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.textTracks.addEventListener('addtrack', reportTracks);
-    video.audioTracks.addEventListener('addtrack', reportTracks);
+    if (video.textTracks) {
+      video.textTracks.addEventListener('addtrack', reportTracks);
+    }
+    if (video.audioTracks) {
+      video.audioTracks.addEventListener('addtrack', reportTracks);
+    }
 
     return () => {
         video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-        video.textTracks.removeEventListener('addtrack', reportTracks);
-        video.audioTracks.removeEventListener('addtrack', reportTracks);
+        if (video.textTracks) {
+          video.textTracks.removeEventListener('addtrack', reportTracks);
+        }
+        if (video.audioTracks) {
+          video.audioTracks.removeEventListener('addtrack', reportTracks);
+        }
     }
   }, [historyItem, reportTracks]);
 
@@ -172,7 +180,7 @@ export function VideoPlayer({
   // Effect to manage which subtitle track is showing
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !video.textTracks) return;
     for (const track of Array.from(video.textTracks)) {
       if (track.kind === 'subtitles' || track.kind === 'captions') {
         track.mode = track.label === activeTextTrackLabel ? 'showing' : 'hidden';
@@ -183,7 +191,7 @@ export function VideoPlayer({
   // Effect to manage which audio track is enabled
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !video.audioTracks) return;
     for (const track of Array.from(video.audioTracks)) {
       track.enabled = track.id === activeAudioTrackId;
     }
@@ -192,7 +200,7 @@ export function VideoPlayer({
   // Effect to adjust subtitle timings
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !video.textTracks) return;
 
     // This function will adjust timings for a given track
     const adjustTrack = (track: TextTrack) => {
