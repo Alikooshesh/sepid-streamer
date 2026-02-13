@@ -17,7 +17,7 @@ import { VideoPlayer } from "@/components/video-player";
 import { useWatchHistory, WatchHistoryItem } from "@/hooks/use-watch-history";
 import { AppHeader } from "@/components/app-header";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2 } from "lucide-react";
+import { Trash2, Plus, Minus, RotateCcw, Timer, FastForward } from "lucide-react";
 
 interface SubtitleTrack {
   id: string;
@@ -36,6 +36,8 @@ function HomePageContent() {
   const [urlInput, setUrlInput] = useState("");
   const [currentItem, setCurrentItem] = useState<WatchHistoryItem | null>(null);
   const [subtitles, setSubtitles] = useState<SubtitleTrack[]>([]);
+  const [subtitleOffset, setSubtitleOffset] = useState(0);
+  const [subtitleRate, setSubtitleRate] = useState(1);
 
   useEffect(() => {
     // Revoke object URLs on cleanup
@@ -51,11 +53,17 @@ function HomePageContent() {
       if (item) {
         setCurrentItem(item);
         setSubtitles([]); // Clear subtitles for new video
+        resetSubtitleTiming();
         // Clear the query param
         router.replace('/', { scroll: false });
       }
     }
   }, [searchParams, history, router]);
+
+  const resetSubtitleTiming = () => {
+    setSubtitleOffset(0);
+    setSubtitleRate(1);
+  };
 
   const handleUrlLoad = () => {
     if (!urlInput) return;
@@ -68,6 +76,7 @@ function HomePageContent() {
     });
     setCurrentItem(newItem);
     setSubtitles([]);
+    resetSubtitleTiming();
     setUrlInput("");
   };
 
@@ -83,6 +92,7 @@ function HomePageContent() {
       });
       setCurrentItem(newItem);
       setSubtitles([]);
+      resetSubtitleTiming();
     }
     event.target.value = ""; // Reset file input
   };
@@ -171,6 +181,16 @@ function HomePageContent() {
     setSubtitles(prev => prev.filter(s => s.id !== id));
   };
 
+  const handleOffsetChange = (delta: number) => {
+    setSubtitleOffset(prev => parseFloat((prev + delta).toFixed(2)));
+  };
+  
+  const handleRateChange = (delta: number) => {
+      setSubtitleRate(prev => {
+          const newRate = parseFloat((prev + delta).toFixed(2));
+          return Math.max(0.1, newRate); // Prevent rate from being 0 or negative
+      });
+  };
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
@@ -182,6 +202,8 @@ function HomePageContent() {
             historyItem={currentItem}
             onTimeUpdate={handleTimeUpdate} 
             subtitles={subtitles}
+            subtitleOffset={subtitleOffset}
+            subtitleRate={subtitleRate}
           />
         </div>
         <aside className="w-96 border-l p-4 overflow-y-auto">
@@ -247,6 +269,52 @@ function HomePageContent() {
                       </ul>
                     </div>
                   )}
+                   <div className="space-y-4 pt-4 border-t">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2 text-sm">
+                        <Timer className="h-4 w-4" />
+                        Subtitle Delay (s)
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOffsetChange(-0.1)}>
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <Input
+                          readOnly
+                          value={subtitleOffset.toFixed(2)}
+                          className="w-20 text-center h-8"
+                        />
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOffsetChange(0.1)}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2 text-sm">
+                        <FastForward className="h-4 w-4" />
+                        Subtitle Speed
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleRateChange(-0.1)}>
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <Input
+                          readOnly
+                          value={subtitleRate.toFixed(2)}
+                          className="w-20 text-center h-8"
+                        />
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleRateChange(0.1)}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  
+                    <Button variant="outline" size="sm" onClick={resetSubtitleTiming}>
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Reset Timing
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
