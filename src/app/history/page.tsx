@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { formatDistanceToNow } from 'date-fns';
-import { History, PlayCircle, Clapperboard, Home as HomeIcon } from 'lucide-react';
+import { History, PlayCircle } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { AppHeader } from '@/components/app-header';
 
 export default function HistoryPage() {
   const { history, clearHistory } = useWatchHistory();
@@ -20,24 +21,7 @@ export default function HistoryPage() {
   return (
     <TooltipProvider>
     <div className="flex flex-col h-screen bg-background text-foreground">
-      <header className="flex items-center justify-between p-4 border-b">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-2">
-            <PlayCircle className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold">Next Video Player</h1>
-          </Link>
-          <nav className="hidden md:flex items-center gap-4 text-lg">
-            <Link href="/" className="flex items-center gap-1 hover:text-primary">
-              <HomeIcon className="w-5 h-5" />
-              <span>Home</span>
-            </Link>
-            <Link href="/series" className="flex items-center gap-1 hover:text-primary">
-              <Clapperboard className="w-5 h-5" />
-              <span>Series</span>
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <AppHeader />
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">

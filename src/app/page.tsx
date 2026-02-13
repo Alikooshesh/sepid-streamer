@@ -14,9 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlayCircle, History, Clapperboard } from "lucide-react";
 import { VideoPlayer } from "@/components/video-player";
 import { useWatchHistory, WatchHistoryItem } from "@/hooks/use-watch-history";
+import { AppHeader } from "@/components/app-header";
 
 function HomePageContent() {
   const router = useRouter();
@@ -82,24 +82,7 @@ function HomePageContent() {
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
-      <header className="flex items-center justify-between p-4 border-b">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <PlayCircle className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold">Next Video Player</h1>
-          </div>
-          <nav className="flex items-center gap-4 text-lg">
-            <Link href="/history" className="flex items-center gap-1 hover:text-primary">
-              <History className="w-5 h-5" />
-              <span>History</span>
-            </Link>
-            <Link href="/series" className="flex items-center gap-1 hover:text-primary">
-              <Clapperboard className="w-5 h-5" />
-              <span>Series</span>
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <AppHeader />
       <main className="flex flex-1 overflow-hidden">
         <div className="flex-1 p-4">
           <VideoPlayer 
