@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -17,14 +16,33 @@ import { Label } from "@/components/ui/label";
 import { VideoPlayer } from "@/components/video-player";
 import { useWatchHistory, WatchHistoryItem } from "@/hooks/use-watch-history";
 import { AppHeader } from "@/components/app-header";
+import { useToast } from "@/hooks/use-toast";
+import { Trash2 } from "lucide-react";
+
+interface SubtitleTrack {
+  id: string;
+  src: string;
+  lang: string;
+  label: string;
+  default: boolean;
+}
 
 function HomePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { history, addToHistory, updateHistoryItem } = useWatchHistory();
+  const { toast } = useToast();
   
   const [urlInput, setUrlInput] = useState("");
   const [currentItem, setCurrentItem] = useState<WatchHistoryItem | null>(null);
+  const [subtitles, setSubtitles] = useState<SubtitleTrack[]>([]);
+
+  useEffect(() => {
+    // Revoke object URLs on cleanup
+    return () => {
+      subtitles.forEach(sub => URL.revokeObjectURL(sub.src));
+    };
+  }, [subtitles]);
 
   useEffect(() => {
     const historyId = searchParams.get('historyId');
@@ -32,6 +50,7 @@ function HomePageContent() {
       const item = history.find(h => h.id === historyId);
       if (item) {
         setCurrentItem(item);
+        setSubtitles([]); // Clear subtitles for new video
         // Clear the query param
         router.replace('/', { scroll: false });
       }
@@ -48,6 +67,7 @@ function HomePageContent() {
       lastPositionSeconds: 0,
     });
     setCurrentItem(newItem);
+    setSubtitles([]);
     setUrlInput("");
   };
 
@@ -62,6 +82,7 @@ function HomePageContent() {
         lastPositionSeconds: 0,
       });
       setCurrentItem(newItem);
+      setSubtitles([]);
     }
     event.target.value = ""; // Reset file input
   };
@@ -80,6 +101,77 @@ function HomePageContent() {
     return currentItem.sourceValue;
   }
 
+  const convertSrtToVtt = (srtText: string): string => {
+    return 'WEBVTT\n\n' +
+      srtText
+        .trim()
+        .replace(/\r/g, '')
+        .split('\n\n')
+        .map(line => {
+          const parts = line.split('\n');
+          if (parts.length > 1 && parts[0].match(/^\d+$/)) {
+            parts.shift();
+          }
+          return parts.join('\n');
+        })
+        .join('\n\n')
+        .replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+  };
+
+  const handleSubtitleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    let subtitleBlob: Blob;
+
+    if (file.name.endsWith('.srt')) {
+      try {
+        const srtText = await file.text();
+        const vttContent = convertSrtToVtt(srtText);
+        subtitleBlob = new Blob([vttContent], { type: 'text/vtt' });
+      } catch (error) {
+        console.error("Error converting SRT to VTT", error);
+        toast({
+          variant: "destructive",
+          title: "Subtitle Conversion Error",
+          description: "Could not convert SRT file to VTT.",
+        });
+        return;
+      }
+    } else if (file.name.endsWith('.vtt')) {
+      subtitleBlob = file;
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Unsupported Format",
+        description: "Please upload a .vtt or .srt file.",
+      });
+      return;
+    }
+    
+    const subtitleUrl = URL.createObjectURL(subtitleBlob);
+  
+    const newSubtitle: SubtitleTrack = {
+      id: crypto.randomUUID(),
+      src: subtitleUrl,
+      lang: file.name.slice(0, 2).toLowerCase() || 'en',
+      label: file.name,
+      default: subtitles.length === 0,
+    };
+  
+    setSubtitles(prev => [...prev, newSubtitle]);
+    event.target.value = ""; // Reset file input
+  };
+
+  const removeSubtitle = (id: string) => {
+    const subToRemove = subtitles.find(s => s.id === id);
+    if (subToRemove) {
+      URL.revokeObjectURL(subToRemove.src);
+    }
+    setSubtitles(prev => prev.filter(s => s.id !== id));
+  };
+
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <AppHeader />
@@ -89,6 +181,7 @@ function HomePageContent() {
             src={getVideoSrc()}
             historyItem={currentItem}
             onTimeUpdate={handleTimeUpdate} 
+            subtitles={subtitles}
           />
         </div>
         <aside className="w-96 border-l p-4 overflow-y-auto">
@@ -131,11 +224,29 @@ function HomePageContent() {
                 <CardHeader>
                   <CardTitle>Subtitles</CardTitle>
                   <CardDescription>
-                    Load and customize subtitles.
+                    Load .vtt or .srt subtitle files.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <p>Subtitle controls will be here.</p>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="subtitle-file">Load Subtitle File</Label>
+                    <Input id="subtitle-file" type="file" onChange={handleSubtitleFileChange} accept=".vtt,.srt" />
+                  </div>
+                  {subtitles.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Loaded Tracks</Label>
+                      <ul className="space-y-2">
+                        {subtitles.map(sub => (
+                          <li key={sub.id} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
+                            <span className="truncate">{sub.label}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeSubtitle(sub.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

@@ -8,7 +8,7 @@ To get started, take a look at src/app/page.tsx.
 
 Here are some features to implement next to complete the video player application:
 
-- [ ] **Implement Subtitles:**
+- [x] **Implement Subtitles:**
     - In `src/app/page.tsx`, under the "Subtitles" tab, add functionality to load subtitle files (e.g., .vtt or .srt).
     - Allow users to select a subtitle track for the video.
 
