@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { WatchHistoryItem } from "@/hooks/use-watch-history";
 
@@ -20,15 +20,42 @@ interface VideoPlayerProps {
   subtitles?: SubtitleTrack[];
   subtitleOffset: number;
   subtitleRate: number;
+  onInternalTracksChange: (tracks: { text: TextTrack[]; audio: AudioTrack[] }) => void;
+  activeTextTrackLabel: string | null;
+  activeAudioTrackId: string | null;
 }
 
-export function VideoPlayer({ src, audioSrc, historyItem, onTimeUpdate, subtitles, subtitleOffset, subtitleRate }: VideoPlayerProps) {
+export function VideoPlayer({ 
+  src, 
+  audioSrc, 
+  historyItem, 
+  onTimeUpdate, 
+  subtitles, 
+  subtitleOffset, 
+  subtitleRate,
+  onInternalTracksChange,
+  activeTextTrackLabel,
+  activeAudioTrackId 
+}: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const onTimeUpdateRef = useRef(onTimeUpdate);
   onTimeUpdateRef.current = onTimeUpdate;
 
   const originalCueTimesRef = useRef(new Map<string, { startTime: number; endTime: number }[]>());
+
+  const onInternalTracksChangeRef = useRef(onInternalTracksChange);
+  onInternalTracksChangeRef.current = onInternalTracksChange;
+  
+  const reportTracks = useCallback(() => {
+    const video = videoRef.current;
+    if (video) {
+        onInternalTracksChangeRef.current({
+            text: Array.from(video.textTracks),
+            audio: Array.from(video.audioTracks),
+        });
+    }
+  }, []);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -41,14 +68,19 @@ export function VideoPlayer({ src, audioSrc, historyItem, onTimeUpdate, subtitle
       if (video.duration) {
         onTimeUpdateRef.current(video.currentTime, video.duration);
       }
+      reportTracks();
     };
     
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.textTracks.addEventListener('addtrack', reportTracks);
+    video.audioTracks.addEventListener('addtrack', reportTracks);
 
     return () => {
         video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        video.textTracks.removeEventListener('addtrack', reportTracks);
+        video.audioTracks.removeEventListener('addtrack', reportTracks);
     }
-  }, [historyItem]);
+  }, [historyItem, reportTracks]);
 
 
   useEffect(() => {
@@ -76,12 +108,6 @@ export function VideoPlayer({ src, audioSrc, historyItem, onTimeUpdate, subtitle
 
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    originalCueTimesRef.current.clear();
-  }, [src]);
   
   // Effect for handling separate audio source
   useEffect(() => {
@@ -141,62 +167,77 @@ export function VideoPlayer({ src, audioSrc, historyItem, onTimeUpdate, subtitle
         video.removeEventListener('volumechange', syncVolumeAndMute);
         video.removeEventListener('ratechange', syncRate);
     }
-
   }, [audioSrc]);
 
+  // Effect to manage which subtitle track is showing
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    for (const track of Array.from(video.textTracks)) {
+      if (track.kind === 'subtitles' || track.kind === 'captions') {
+        track.mode = track.label === activeTextTrackLabel ? 'showing' : 'hidden';
+      }
+    }
+  }, [activeTextTrackLabel]);
+
+  // Effect to manage which audio track is enabled
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    for (const track of Array.from(video.audioTracks)) {
+      track.enabled = track.id === activeAudioTrackId;
+    }
+  }, [activeAudioTrackId]);
+
+  // Effect to adjust subtitle timings
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
+    // This function will adjust timings for a given track
     const adjustTrack = (track: TextTrack) => {
-        if (track.kind !== 'subtitles' || !track.cues) return;
+        if ((track.kind !== 'subtitles' && track.kind !== 'captions') || !track.cues) return;
 
         const trackId = track.label;
         
         if (!originalCueTimesRef.current.has(trackId)) {
             const originalTimes = Array.from(track.cues).map(cue => ({ startTime: cue.startTime, endTime: cue.endTime }));
-            originalCueTimesRef.current.set(trackId, originalTimes);
+            if (originalTimes.length > 0) {
+              originalCueTimesRef.current.set(trackId, originalTimes);
+            }
         }
 
         const originalTimesForTrack = originalCueTimesRef.current.get(trackId);
         if (!originalTimesForTrack) return;
 
-        Array.from(track.cues).forEach((cue, index) => {
-            const vttCue = cue as VTTCue;
-            const original = originalTimesForTrack[index];
-            if (original) {
-                vttCue.startTime = Math.max(0, original.startTime / subtitleRate + subtitleOffset);
-                vttCue.endTime = Math.max(0, original.endTime / subtitleRate + subtitleOffset);
-            }
-        });
-    }
-
-    const onAddTrack = (e: TrackEvent) => {
-      const track = e.track as TextTrack | null;
-      if (track) {
-        if (track.cues && track.cues.length > 0) {
-          adjustTrack(track);
-        } else {
-          track.addEventListener('load', () => adjustTrack(track), { once: true });
+        for (let i = 0; i < track.cues.length; i++) {
+          const cue = track.cues[i] as VTTCue;
+          const original = originalTimesForTrack[i];
+          if (original) {
+              cue.startTime = Math.max(0, original.startTime / subtitleRate + subtitleOffset);
+              cue.endTime = Math.max(0, original.endTime / subtitleRate + subtitleOffset);
+          }
         }
-      }
-    };
-    
-    for (const track of Array.from(video.textTracks)) {
-      if (track.cues && track.cues.length > 0) {
-        adjustTrack(track);
-      } else {
-        track.addEventListener('load', () => adjustTrack(track), { once: true });
-      }
     }
 
-    video.textTracks.addEventListener('addtrack', onAddTrack);
+    // Find the currently active track and apply adjustments
+    const activeTrack = Array.from(video.textTracks).find(t => t.mode === 'showing');
 
-    return () => {
-      video.textTracks.removeEventListener('addtrack', onAddTrack);
-    };
+    if (activeTrack) {
+        if (activeTrack.cues && activeTrack.cues.length > 0) {
+            adjustTrack(activeTrack);
+        } else {
+            activeTrack.addEventListener('load', () => adjustTrack(activeTrack), { once: true });
+        }
+    }
+    
+  }, [subtitleOffset, subtitleRate, activeTextTrackLabel]);
 
-  }, [subtitleOffset, subtitleRate, subtitles, src]);
+
+  // Effect to clear original cue times when source changes to prevent memory leaks
+  useEffect(() => {
+    originalCueTimesRef.current.clear();
+  }, [src]);
 
   return (
     <div className="w-full">

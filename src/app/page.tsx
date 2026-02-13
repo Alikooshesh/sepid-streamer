@@ -9,6 +9,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,10 +42,21 @@ function HomePageContent() {
   
   const [urlInput, setUrlInput] = useState("");
   const [currentItem, setCurrentItem] = useState<WatchHistoryItem | null>(null);
+  
+  // External media attachments
   const [subtitles, setSubtitles] = useState<SubtitleTrack[]>([]);
+  const [audioTrack, setAudioTrack] = useState<{ url: string; name: string } | null>(null);
+
+  // Subtitle timing controls
   const [subtitleOffset, setSubtitleOffset] = useState(0);
   const [subtitleRate, setSubtitleRate] = useState(1);
-  const [audioTrack, setAudioTrack] = useState<{ url: string; name: string } | null>(null);
+
+  // Internal (embedded) tracks
+  const [internalTextTracks, setInternalTextTracks] = useState<TextTrack[]>([]);
+  const [internalAudioTracks, setInternalAudioTracks] = useState<AudioTrack[]>([]);
+  const [activeTextTrackLabel, setActiveTextTrackLabel] = useState<string | null>(null);
+  const [activeAudioTrackId, setActiveAudioTrackId] = useState<string | null>(null);
+
 
   const resetSubtitleTiming = useCallback(() => {
     setSubtitleOffset(0);
@@ -57,17 +75,21 @@ function HomePageContent() {
       setAudioTrack(null);
     }
   }, [subtitles, audioTrack, resetSubtitleTiming]);
-
+  
+  // Effect to reset all media state when the video source changes
   useEffect(() => {
-    // This effect cleans up attachments when the video source changes.
     if (currentItem) {
       resetMediaAttachments();
+      setInternalTextTracks([]);
+      setInternalAudioTracks([]);
+      setActiveTextTrackLabel(null);
+      setActiveAudioTrackId(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentItem?.id]);
 
+  // General cleanup effect for object URLs
   useEffect(() => {
-    // Revoke object URLs on component unmount
     return () => {
       subtitles.forEach(sub => URL.revokeObjectURL(sub.src));
       if (audioTrack) {
@@ -76,6 +98,7 @@ function HomePageContent() {
     };
   }, [subtitles, audioTrack]);
 
+  // Effect to load video from history via URL param
   useEffect(() => {
     const historyId = searchParams.get('historyId');
     if (historyId) {
@@ -190,12 +213,16 @@ function HomePageContent() {
     };
   
     setSubtitles(prev => [...prev, newSubtitle]);
+    setActiveTextTrackLabel(newSubtitle.label); // Auto-select the newly added track
     event.target.value = ""; // Reset file input
   };
 
   const removeSubtitle = (id: string) => {
     const subToRemove = subtitles.find(s => s.id === id);
     if (subToRemove) {
+      if (activeTextTrackLabel === subToRemove.label) {
+        setActiveTextTrackLabel(null);
+      }
       URL.revokeObjectURL(subToRemove.src);
     }
     setSubtitles(prev => prev.filter(s => s.id !== id));
@@ -233,6 +260,27 @@ function HomePageContent() {
     }
   };
 
+  const handleInternalTracksChange = useCallback(({ text, audio }: { text: TextTrack[], audio: AudioTrack[] }) => {
+    const subtitleTracks = text.filter(t => t.kind === 'subtitles');
+    setInternalTextTracks(subtitleTracks);
+    setInternalAudioTracks(audio);
+
+    if (!activeTextTrackLabel && subtitleTracks.length > 0) {
+      const defaultTrack = subtitleTracks.find(t => t.mode === 'showing') || subtitleTracks.find(t => t.language.startsWith('en')) || subtitleTracks[0];
+      if (defaultTrack) {
+        setActiveTextTrackLabel(defaultTrack.label);
+      }
+    }
+    
+    if (!activeAudioTrackId && audio.length > 0) {
+      const defaultTrack = audio.find(t => t.enabled) || audio.find(t => t.language.startsWith('en')) || audio[0];
+      if (defaultTrack) {
+        setActiveAudioTrackId(defaultTrack.id);
+      }
+    }
+  }, [activeTextTrackLabel, activeAudioTrackId]);
+
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <AppHeader />
@@ -246,6 +294,9 @@ function HomePageContent() {
             subtitleOffset={subtitleOffset}
             subtitleRate={subtitleRate}
             audioSrc={audioTrack?.url ?? null}
+            onInternalTracksChange={handleInternalTracksChange}
+            activeTextTrackLabel={activeTextTrackLabel}
+            activeAudioTrackId={activeAudioTrackId}
           />
         </div>
         <aside className="w-96 border-l p-4 overflow-y-auto">
@@ -288,17 +339,46 @@ function HomePageContent() {
                 <CardHeader>
                   <CardTitle>Subtitles</CardTitle>
                   <CardDescription>
-                    Load .vtt or .srt subtitle files.
+                    Load or select subtitle tracks.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  
+                  {(internalTextTracks.length > 0 || subtitles.length > 0) && (
+                    <div className="space-y-2">
+                      <Label>Active Subtitle</Label>
+                      <Select
+                          value={activeTextTrackLabel ?? ""}
+                          onValueChange={(label) => setActiveTextTrackLabel(label || null)}
+                      >
+                          <SelectTrigger>
+                              <SelectValue placeholder="Select a track" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="">None</SelectItem>
+                              {internalTextTracks.map(track => (
+                                  <SelectItem key={track.label} value={track.label}>
+                                      {track.label} (Embedded)
+                                  </SelectItem>
+                              ))}
+                              {subtitles.map(sub => (
+                                <SelectItem key={sub.id} value={sub.label}>
+                                    {sub.label} (External)
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                    <Label htmlFor="subtitle-file">Load Subtitle File</Label>
+                    <Label htmlFor="subtitle-file">Load External Subtitle</Label>
                     <Input id="subtitle-file" type="file" onChange={handleSubtitleFileChange} accept=".vtt,.srt" />
                   </div>
+
                   {subtitles.length > 0 && (
                     <div className="space-y-2">
-                      <Label>Loaded Tracks</Label>
+                      <Label>External Tracks</Label>
                       <ul className="space-y-2">
                         {subtitles.map(sub => (
                           <li key={sub.id} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
@@ -311,6 +391,7 @@ function HomePageContent() {
                       </ul>
                     </div>
                   )}
+
                    <div className="space-y-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2 text-sm">
@@ -352,9 +433,7 @@ function HomePageContent() {
                       </div>
                     </div>
                   
-                    <Button variant="outline" size="sm" onClick={() => {
-                        resetSubtitleTiming();
-                    }}>
+                    <Button variant="outline" size="sm" onClick={resetSubtitleTiming}>
                       <RotateCcw className="mr-2 h-4 w-4" />
                       Reset Timing
                     </Button>
@@ -365,14 +444,14 @@ function HomePageContent() {
             <TabsContent value="audio">
               <Card>
                 <CardHeader>
-                  <CardTitle>Separate Audio</CardTitle>
+                  <CardTitle>Audio Track</CardTitle>
                   <CardDescription>
-                    Attach a separate audio track. The video's original audio will be muted.
+                    Attach or select an audio track.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="audio-file">Load Audio File</Label>
+                        <Label htmlFor="audio-file">Load External Audio File</Label>
                         <Input id="audio-file" type="file" onChange={handleAudioFileChange} accept="audio/*,.mp3,.wav,.ogg" />
                     </div>
 
@@ -386,11 +465,37 @@ function HomePageContent() {
                                 </Button>
                             </div>
                         </div>
-                    ) : (
+                    ) : internalAudioTracks.length <= 1 ? (
                         <div className="flex flex-col items-center justify-center text-center p-6 border-dashed border-2 rounded-md">
                             <AudioLines className="w-10 h-10 text-muted-foreground/50 mb-2" />
-                            <p className="text-sm text-muted-foreground">No separate audio track loaded.</p>
+                            <p className="text-sm text-muted-foreground">No separate or multiple audio tracks.</p>
                         </div>
+                    ) : null}
+
+                    {internalAudioTracks.length > 1 && (
+                      <div className="space-y-2 pt-4 border-t">
+                          <Label>Embedded Audio Tracks</Label>
+                          <Select
+                              value={activeAudioTrackId ?? ''}
+                              onValueChange={(id) => {
+                                  if (audioTrack) removeAudioTrack();
+                                  setActiveAudioTrackId(id);
+                              }}
+                              disabled={!!audioTrack}
+                          >
+                              <SelectTrigger>
+                                  <SelectValue placeholder="Select an audio track" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  {internalAudioTracks.map(track => (
+                                      <SelectItem key={track.id} value={track.id}>
+                                          {track.label || `Track ${track.id}`} ({track.language})
+                                      </SelectItem>
+                                  ))}
+                              </SelectContent>
+                          </Select>
+                          {!!audioTrack && <p className="text-xs text-muted-foreground">Disable external audio to select embedded tracks.</p>}
+                      </div>
                     )}
                 </CardContent>
               </Card>
