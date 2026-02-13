@@ -12,7 +12,7 @@ Here are some features to implement next to complete the video player applicatio
     - In `src/app/page.tsx`, under the "Subtitles" tab, add functionality to load subtitle files (e.g., .vtt or .srt).
     - Allow users to select a subtitle track for the video.
 
-- [ ] **Implement Separate Audio Tracks:**
+- [x] **Implement Separate Audio Tracks:**
     - In `src/app/page.tsx`, under the "Audio" tab, add functionality to load a separate audio file to be played with the video.
 
 - [ ] **Build the Series Page:**
@@ -24,3 +24,4 @@ Here are some features to implement next to complete the video player applicatio
         - Generating video transcripts from the audio.
         - Summarizing video content.
         - Automatically creating video chapters.
+

@@ -14,6 +14,7 @@ interface SubtitleTrack {
 
 interface VideoPlayerProps {
   src: string | null;
+  audioSrc: string | null;
   historyItem: WatchHistoryItem | null;
   onTimeUpdate: (time: number, duration: number) => void;
   subtitles?: SubtitleTrack[];
@@ -21,8 +22,9 @@ interface VideoPlayerProps {
   subtitleRate: number;
 }
 
-export function VideoPlayer({ src, historyItem, onTimeUpdate, subtitles, subtitleOffset, subtitleRate }: VideoPlayerProps) {
+export function VideoPlayer({ src, audioSrc, historyItem, onTimeUpdate, subtitles, subtitleOffset, subtitleRate }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const onTimeUpdateRef = useRef(onTimeUpdate);
   onTimeUpdateRef.current = onTimeUpdate;
 
@@ -80,6 +82,67 @@ export function VideoPlayer({ src, historyItem, onTimeUpdate, subtitles, subtitl
     if (!video) return;
     originalCueTimesRef.current.clear();
   }, [src]);
+  
+  // Effect for handling separate audio source
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    
+    if (audioSrc) {
+      if (audio.src !== audioSrc) {
+        audio.src = audioSrc;
+        audio.load();
+      }
+    } else if (audio.src) {
+      audio.removeAttribute('src');
+      audio.load();
+    }
+  }, [audioSrc]);
+  
+  // Effect for synchronizing video and audio playback
+  useEffect(() => {
+    const video = videoRef.current;
+    const audio = audioRef.current;
+    if (!video || !audio) return;
+
+    const syncPlay = () => audio.play();
+    const syncPause = () => audio.pause();
+    const syncTime = () => { audio.currentTime = video.currentTime; };
+    const syncVolumeAndMute = () => {
+      audio.volume = video.volume;
+      if (audioSrc) {
+        audio.muted = video.muted;
+      }
+    };
+    const syncRate = () => { audio.playbackRate = video.playbackRate; };
+
+    video.addEventListener('play', syncPlay);
+    video.addEventListener('pause', syncPause);
+    video.addEventListener('seeking', syncTime);
+    video.addEventListener('seeked', syncTime);
+    video.addEventListener('volumechange', syncVolumeAndMute);
+    video.addEventListener('ratechange', syncRate);
+
+    // Initial sync
+    syncTime();
+    syncVolumeAndMute();
+    syncRate();
+    if (video.paused) {
+        syncPause();
+    } else {
+        syncPlay().catch(e => console.error("Audio play failed", e));
+    }
+
+    return () => {
+        video.removeEventListener('play', syncPlay);
+        video.removeEventListener('pause', syncPause);
+        video.removeEventListener('seeking', syncTime);
+        video.removeEventListener('seeked', syncTime);
+        video.removeEventListener('volumechange', syncVolumeAndMute);
+        video.removeEventListener('ratechange', syncRate);
+    }
+
+  }, [audioSrc]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -142,6 +205,7 @@ export function VideoPlayer({ src, historyItem, onTimeUpdate, subtitles, subtitl
           key={src} // Re-mount when src changes to properly load new tracks
           ref={videoRef}
           controls
+          muted={!!audioSrc}
           crossOrigin="anonymous" // Needed for external subtitles from blob URLs
           className="w-full h-full rounded-lg bg-black"
           autoPlay={!!src}
@@ -157,6 +221,7 @@ export function VideoPlayer({ src, historyItem, onTimeUpdate, subtitles, subtitl
             />
           ))}
         </video>
+        <audio ref={audioRef} crossOrigin="anonymous" />
       </AspectRatio>
     </div>
   );

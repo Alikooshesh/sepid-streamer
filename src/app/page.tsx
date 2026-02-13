@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Card,
@@ -17,7 +17,7 @@ import { VideoPlayer } from "@/components/video-player";
 import { useWatchHistory, WatchHistoryItem } from "@/hooks/use-watch-history";
 import { AppHeader } from "@/components/app-header";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Plus, Minus, RotateCcw, Timer, FastForward } from "lucide-react";
+import { Trash2, Plus, Minus, RotateCcw, Timer, FastForward, AudioLines } from "lucide-react";
 
 interface SubtitleTrack {
   id: string;
@@ -38,13 +38,43 @@ function HomePageContent() {
   const [subtitles, setSubtitles] = useState<SubtitleTrack[]>([]);
   const [subtitleOffset, setSubtitleOffset] = useState(0);
   const [subtitleRate, setSubtitleRate] = useState(1);
+  const [audioTrack, setAudioTrack] = useState<{ url: string; name: string } | null>(null);
+
+  const resetSubtitleTiming = useCallback(() => {
+    setSubtitleOffset(0);
+    setSubtitleRate(1);
+  }, []);
+
+  const resetMediaAttachments = useCallback(() => {
+    // Revoke old subtitle URLs
+    subtitles.forEach(sub => URL.revokeObjectURL(sub.src));
+    setSubtitles([]);
+    resetSubtitleTiming();
+    
+    // Revoke old audio URL
+    if (audioTrack) {
+      URL.revokeObjectURL(audioTrack.url);
+      setAudioTrack(null);
+    }
+  }, [subtitles, audioTrack, resetSubtitleTiming]);
 
   useEffect(() => {
-    // Revoke object URLs on cleanup
+    // This effect cleans up attachments when the video source changes.
+    if (currentItem) {
+      resetMediaAttachments();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentItem?.id]);
+
+  useEffect(() => {
+    // Revoke object URLs on component unmount
     return () => {
       subtitles.forEach(sub => URL.revokeObjectURL(sub.src));
+      if (audioTrack) {
+        URL.revokeObjectURL(audioTrack.url);
+      }
     };
-  }, [subtitles]);
+  }, [subtitles, audioTrack]);
 
   useEffect(() => {
     const historyId = searchParams.get('historyId');
@@ -52,18 +82,12 @@ function HomePageContent() {
       const item = history.find(h => h.id === historyId);
       if (item) {
         setCurrentItem(item);
-        setSubtitles([]); // Clear subtitles for new video
-        resetSubtitleTiming();
         // Clear the query param
         router.replace('/', { scroll: false });
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, history, router]);
-
-  const resetSubtitleTiming = () => {
-    setSubtitleOffset(0);
-    setSubtitleRate(1);
-  };
 
   const handleUrlLoad = () => {
     if (!urlInput) return;
@@ -75,8 +99,6 @@ function HomePageContent() {
       lastPositionSeconds: 0,
     });
     setCurrentItem(newItem);
-    setSubtitles([]);
-    resetSubtitleTiming();
     setUrlInput("");
   };
 
@@ -91,8 +113,6 @@ function HomePageContent() {
         lastPositionSeconds: 0,
       });
       setCurrentItem(newItem);
-      setSubtitles([]);
-      resetSubtitleTiming();
     }
     event.target.value = ""; // Reset file input
   };
@@ -192,6 +212,27 @@ function HomePageContent() {
       });
   };
 
+  const handleAudioFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (audioTrack) {
+        URL.revokeObjectURL(audioTrack.url);
+      }
+      const url = URL.createObjectURL(file);
+      setAudioTrack({ url, name: file.name });
+      toast({ title: "Audio track loaded", description: file.name });
+    }
+    event.target.value = ""; // Reset file input
+  };
+
+  const removeAudioTrack = () => {
+    if (audioTrack) {
+      URL.revokeObjectURL(audioTrack.url);
+      setAudioTrack(null);
+      toast({ title: "Audio track removed" });
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <AppHeader />
@@ -204,6 +245,7 @@ function HomePageContent() {
             subtitles={subtitles}
             subtitleOffset={subtitleOffset}
             subtitleRate={subtitleRate}
+            audioSrc={audioTrack?.url ?? null}
           />
         </div>
         <aside className="w-96 border-l p-4 overflow-y-auto">
@@ -310,7 +352,9 @@ function HomePageContent() {
                       </div>
                     </div>
                   
-                    <Button variant="outline" size="sm" onClick={resetSubtitleTiming}>
+                    <Button variant="outline" size="sm" onClick={() => {
+                        resetSubtitleTiming();
+                    }}>
                       <RotateCcw className="mr-2 h-4 w-4" />
                       Reset Timing
                     </Button>
@@ -323,11 +367,31 @@ function HomePageContent() {
                 <CardHeader>
                   <CardTitle>Separate Audio</CardTitle>
                   <CardDescription>
-                    Attach a separate audio track.
+                    Attach a separate audio track. The video's original audio will be muted.
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <p>Audio controls will be here.</p>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="audio-file">Load Audio File</Label>
+                        <Input id="audio-file" type="file" onChange={handleAudioFileChange} accept="audio/*,.mp3,.wav,.ogg" />
+                    </div>
+
+                    {audioTrack ? (
+                        <div className="space-y-2">
+                            <Label>Loaded Audio Track</Label>
+                            <div className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
+                                <span className="truncate">{audioTrack.name}</span>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={removeAudioTrack}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center text-center p-6 border-dashed border-2 rounded-md">
+                            <AudioLines className="w-10 h-10 text-muted-foreground/50 mb-2" />
+                            <p className="text-sm text-muted-foreground">No separate audio track loaded.</p>
+                        </div>
+                    )}
                 </CardContent>
               </Card>
             </TabsContent>
