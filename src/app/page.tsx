@@ -24,7 +24,13 @@ import { VideoPlayer } from "@/components/video-player";
 import { useWatchHistory, WatchHistoryItem } from "@/hooks/use-watch-history";
 import { AppHeader } from "@/components/app-header";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Plus, Minus, RotateCcw, Timer, FastForward, AudioLines } from "lucide-react";
+import { Trash2, Plus, Minus, RotateCcw, Timer, FastForward, AudioLines, Server } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface SubtitleTrack {
   id: string;
@@ -123,6 +129,26 @@ function HomePageContent() {
     });
     setCurrentItem(newItem);
     setUrlInput("");
+  };
+
+  const handleProxyLoad = () => {
+    if (!urlInput) return;
+    const title = urlInput.substring(urlInput.lastIndexOf('/') + 1) || urlInput;
+    const proxyUrl = `/api/proxy?url=${encodeURIComponent(urlInput)}`;
+    
+    const itemToPlay = addToHistory({
+      title: `${title} (Proxied)`,
+      sourceType: 'url',
+      sourceValue: proxyUrl,
+      lastPositionSeconds: 0,
+    });
+
+    setCurrentItem(itemToPlay);
+    setUrlInput("");
+    toast({
+        title: "Loading via proxy",
+        description: "The video will be streamed through the server."
+    });
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -261,7 +287,7 @@ function HomePageContent() {
   };
 
   const handleInternalTracksChange = useCallback(({ text, audio }: { text: TextTrack[], audio: AudioTrack[] }) => {
-    const subtitleTracks = text.filter(t => t.kind === 'subtitles');
+    const subtitleTracks = text.filter(t => t.kind === 'subtitles' || t.kind === 'captions');
     setInternalTextTracks(subtitleTracks);
     setInternalAudioTracks(audio);
 
@@ -323,8 +349,21 @@ function HomePageContent() {
                         placeholder="https://example.com/video.mp4"
                         value={urlInput}
                         onChange={(e) => setUrlInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleUrlLoad()}
                       />
                       <Button onClick={handleUrlLoad}>Load</Button>
+                      <TooltipProvider>
+                          <Tooltip>
+                              <TooltipTrigger asChild>
+                                  <Button onClick={handleProxyLoad} variant="outline" size="icon">
+                                      <Server className="h-4 w-4" />
+                                  </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                  <p>Load via server proxy</p>
+                              </TooltipContent>
+                          </Tooltip>
+                      </TooltipProvider>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -356,9 +395,9 @@ function HomePageContent() {
                           </SelectTrigger>
                           <SelectContent>
                               <SelectItem value="">None</SelectItem>
-                              {internalTextTracks.map(track => (
-                                  <SelectItem key={track.label} value={track.label}>
-                                      {track.label} (Embedded)
+                              {internalTextTracks.map((track, i) => (
+                                  <SelectItem key={`${track.label}-${i}`} value={track.label}>
+                                      {track.label || `Track ${i+1}`} (Embedded)
                                   </SelectItem>
                               ))}
                               {subtitles.map(sub => (

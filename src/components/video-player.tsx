@@ -76,7 +76,7 @@ export function VideoPlayer({
       video.textTracks.addEventListener('addtrack', reportTracks);
     }
     if (video.audioTracks) {
-      video.audioTracks.addEventListener('addtrack', reportTracks);
+        video.audioTracks.addEventListener('addtrack', reportTracks);
     }
 
     return () => {
@@ -206,7 +206,7 @@ export function VideoPlayer({
     const adjustTrack = (track: TextTrack) => {
         if ((track.kind !== 'subtitles' && track.kind !== 'captions') || !track.cues) return;
 
-        const trackId = track.label;
+        const trackId = track.label || 'unknown';
         
         if (!originalCueTimesRef.current.has(trackId)) {
             const originalTimes = Array.from(track.cues).map(cue => ({ startTime: cue.startTime, endTime: cue.endTime }));
