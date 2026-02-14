@@ -29,8 +29,10 @@ export async function GET(request: NextRequest) {
     // Create new headers, copying from the original response
     const headers = new Headers();
     videoResponse.headers.forEach((value, key) => {
+        const lowerCaseKey = key.toLowerCase();
         // Don't copy content-encoding, as Next.js will handle compression.
-        if (key.toLowerCase() !== 'content-encoding') {
+        // Don't copy content-disposition, as it may force a download.
+        if (lowerCaseKey !== 'content-encoding' && lowerCaseKey !== 'content-disposition') {
             headers.set(key, value);
         }
     });
