@@ -14,6 +14,14 @@ export async function GET(request: NextRequest) {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     });
 
+    // Add a referer header. Some servers require this to prevent hotlinking.
+    try {
+        const url = new URL(videoUrl);
+        fetchHeaders.set('Referer', url.origin + '/');
+    } catch (e) {
+        // If the URL is invalid, we can't create a referer, but we can still try to fetch.
+    }
+
     if (range) {
       fetchHeaders.set('Range', range);
     }
