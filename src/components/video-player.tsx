@@ -23,6 +23,7 @@ interface VideoPlayerProps {
   onInternalTracksChange: (tracks: { text: TextTrack[]; audio: AudioTrack[] }) => void;
   activeTextTrackLabel: string | null;
   activeAudioTrackId: string | null;
+  onError?: (message: string) => void;
 }
 
 export function VideoPlayer({ 
@@ -35,7 +36,8 @@ export function VideoPlayer({
   subtitleRate,
   onInternalTracksChange,
   activeTextTrackLabel,
-  activeAudioTrackId 
+  activeAudioTrackId,
+  onError
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -47,6 +49,9 @@ export function VideoPlayer({
   const onInternalTracksChangeRef = useRef(onInternalTracksChange);
   onInternalTracksChangeRef.current = onInternalTracksChange;
   
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+  
   const reportTracks = useCallback(() => {
     const video = videoRef.current;
     if (video) {
@@ -55,6 +60,29 @@ export function VideoPlayer({
             audio: video.audioTracks ? Array.from(video.audioTracks) : [],
         });
     }
+  }, []);
+
+  const handleError = useCallback(() => {
+    const video = videoRef.current;
+    // Don't trigger error if there's no source, as this can happen on initial load
+    if (!video || !video.error || !onErrorRef.current || !video.src) return;
+
+    let message = `An unknown error occurred. Code: ${video.error.code}.`;
+    switch (video.error.code) {
+      case 1: /* MEDIA_ERR_ABORTED */
+        message = 'The video download was aborted.';
+        break;
+      case 2: /* MEDIA_ERR_NETWORK */
+        message = 'A network error caused the video download to fail.';
+        break;
+      case 3: /* MEDIA_ERR_DECODE */
+        message = 'The video could not be decoded, possibly due to corruption or unsupported features.';
+        break;
+      case 4: /* MEDIA_ERR_SRC_NOT_SUPPORTED */
+        message = 'The video could not be loaded. The format may not be supported or the server/network failed.';
+        break;
+    }
+    onErrorRef.current(message);
   }, []);
 
   useEffect(() => {
@@ -258,6 +286,7 @@ export function VideoPlayer({
           crossOrigin="anonymous" // Needed for external subtitles from blob URLs
           className="w-full h-full rounded-lg bg-black"
           autoPlay={!!src}
+          onError={handleError}
         >
           {subtitles?.map((sub) => (
             <track

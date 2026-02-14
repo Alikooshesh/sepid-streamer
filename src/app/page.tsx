@@ -306,6 +306,15 @@ function HomePageContent() {
     }
   }, [activeTextTrackLabel, activeAudioTrackId]);
 
+  const handleVideoError = useCallback((message: string) => {
+    toast({
+      variant: 'destructive',
+      title: "Video Playback Error",
+      description: message,
+      duration: 10000,
+    });
+  }, [toast]);
+
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
@@ -323,6 +332,7 @@ function HomePageContent() {
             onInternalTracksChange={handleInternalTracksChange}
             activeTextTrackLabel={activeTextTrackLabel}
             activeAudioTrackId={activeAudioTrackId}
+            onError={handleVideoError}
           />
         </div>
         <aside className="w-96 border-l p-4 overflow-y-auto">
