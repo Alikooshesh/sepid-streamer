@@ -23,7 +23,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!videoResponse.ok) {
-      return new NextResponse(`Failed to fetch video: ${videoResponse.statusText}`, { status: videoResponse.status });
+      const errorBody = await videoResponse.text().catch(() => 'Could not read error body');
+      const errorMessage = `Failed to fetch video: ${videoResponse.status} ${videoResponse.statusText}. Response from origin: ${errorBody}`;
+      console.error(`Proxy error for ${videoUrl}: ${errorMessage}`);
+      return new NextResponse(errorMessage, { status: videoResponse.status });
     }
 
     // Create new headers, copying from the original response
