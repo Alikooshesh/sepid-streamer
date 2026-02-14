@@ -283,7 +283,6 @@ export function VideoPlayer({
           ref={videoRef}
           controls
           muted={!!audioSrc}
-          crossOrigin="anonymous" // Needed for external subtitles from blob URLs
           className="w-full h-full rounded-lg bg-black"
           autoPlay={!!src}
           onError={handleError}
