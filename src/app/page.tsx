@@ -610,7 +610,7 @@ function HomePageContent() {
                     AI Assistant
                   </CardTitle>
                   <CardDescription>
-                    Generate summaries, transcripts, and chapters using AI.
+                    Generate summaries, transcripts, and chapters using Gemini 1.5 Flash.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">

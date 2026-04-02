@@ -98,7 +98,7 @@ export default function SeriesPage() {
     setImportUrl('');
     toast({
       title: "Series Imported",
-      description: `Created "${generatedResult.seriesTitle}" with ${videos.length} episodes.`
+      description: `Created "${generatedResult.seriesTitle}" with ${videos.length} episodes using Gemini 1.5 Flash.`
     });
   };
 
@@ -134,7 +134,7 @@ export default function SeriesPage() {
                 <Sparkles className="w-5 h-5 text-primary" />
                 AI Series Generator
               </CardTitle>
-              <CardDescription>Paste one episode URL to generate the full season.</CardDescription>
+              <CardDescription>Paste one episode URL to generate the full season with Gemini 1.5 Flash.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
