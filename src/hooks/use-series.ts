@@ -38,12 +38,12 @@ export function useSeries() {
         }
     }, []);
     
-    const createSeries = useCallback((title: string) => {
+    const createSeries = useCallback((title: string, initialVideos: VideoInSeries[] = []) => {
         if (!title.trim()) return;
         const newSeries: Series = {
             id: crypto.randomUUID(),
             title: title.trim(),
-            videos: [],
+            videos: initialVideos,
             updatedAt: Date.now(),
         };
         const updatedSeries = [newSeries, ...series];
