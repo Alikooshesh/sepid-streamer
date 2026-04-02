@@ -45,10 +45,10 @@ function HomePageContent() {
   const searchParams = useSearchParams();
   const { history, addToHistory, updateHistoryItem } = useWatchHistory();
   const { toast } = useToast();
-  
+
   const [urlInput, setUrlInput] = useState("");
   const [currentItem, setCurrentItem] = useState<WatchHistoryItem | null>(null);
-  
+
   // External media attachments
   const [subtitles, setSubtitles] = useState<SubtitleTrack[]>([]);
   const [audioTrack, setAudioTrack] = useState<{ url: string; name: string } | null>(null);
@@ -74,14 +74,14 @@ function HomePageContent() {
     subtitles.forEach(sub => URL.revokeObjectURL(sub.src));
     setSubtitles([]);
     resetSubtitleTiming();
-    
+
     // Revoke old audio URL
     if (audioTrack) {
       URL.revokeObjectURL(audioTrack.url);
       setAudioTrack(null);
     }
   }, [subtitles, audioTrack, resetSubtitleTiming]);
-  
+
   // Effect to reset all media state when the video source changes
   useEffect(() => {
     if (currentItem) {
@@ -91,7 +91,7 @@ function HomePageContent() {
       setActiveTextTrackLabel(null);
       setActiveAudioTrackId(null);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentItem?.id]);
 
   // General cleanup effect for object URLs
@@ -115,7 +115,7 @@ function HomePageContent() {
         router.replace('/', { scroll: false });
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, history, router]);
 
   const handleUrlLoad = () => {
@@ -128,14 +128,13 @@ function HomePageContent() {
       lastPositionSeconds: 0,
     });
     setCurrentItem(newItem);
-    setUrlInput("");
   };
 
   const handleProxyLoad = () => {
     if (!urlInput) return;
     const title = urlInput.substring(urlInput.lastIndexOf('/') + 1) || urlInput;
     const proxyUrl = `/api/proxy?url=${encodeURIComponent(urlInput)}`;
-    
+
     const itemToPlay = addToHistory({
       title: `${title} (Proxied)`,
       sourceType: 'url',
@@ -146,8 +145,8 @@ function HomePageContent() {
     setCurrentItem(itemToPlay);
     setUrlInput("");
     toast({
-        title: "Loading via proxy",
-        description: "The video will be streamed through the server."
+      title: "Loading via proxy",
+      description: "The video will be streamed through the server."
     });
   };
 
@@ -174,7 +173,7 @@ function HomePageContent() {
       });
     }
   };
-  
+
   const getVideoSrc = () => {
     if (!currentItem) return null;
     return currentItem.sourceValue;
@@ -227,9 +226,9 @@ function HomePageContent() {
       });
       return;
     }
-    
+
     const subtitleUrl = URL.createObjectURL(subtitleBlob);
-  
+
     const newSubtitle: SubtitleTrack = {
       id: crypto.randomUUID(),
       src: subtitleUrl,
@@ -237,7 +236,7 @@ function HomePageContent() {
       label: file.name,
       default: subtitles.length === 0,
     };
-  
+
     setSubtitles(prev => [...prev, newSubtitle]);
     setActiveTextTrackLabel(newSubtitle.label); // Auto-select the newly added track
     event.target.value = ""; // Reset file input
@@ -257,12 +256,12 @@ function HomePageContent() {
   const handleOffsetChange = (delta: number) => {
     setSubtitleOffset(prev => parseFloat((prev + delta).toFixed(2)));
   };
-  
+
   const handleRateChange = (delta: number) => {
-      setSubtitleRate(prev => {
-          const newRate = parseFloat((prev + delta).toFixed(2));
-          return Math.max(0.1, newRate); // Prevent rate from being 0 or negative
-      });
+    setSubtitleRate(prev => {
+      const newRate = parseFloat((prev + delta).toFixed(2));
+      return Math.max(0.1, newRate); // Prevent rate from being 0 or negative
+    });
   };
 
   const handleAudioFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -297,7 +296,7 @@ function HomePageContent() {
         setActiveTextTrackLabel(defaultTrack.label);
       }
     }
-    
+
     if (!activeAudioTrackId && audio.length > 0) {
       const defaultTrack = audio.find(t => t.enabled) || audio.find(t => t.language.startsWith('en')) || audio[0];
       if (defaultTrack) {
@@ -321,10 +320,10 @@ function HomePageContent() {
       <AppHeader />
       <main className="flex flex-1 overflow-hidden">
         <div className="flex-1 p-4">
-          <VideoPlayer 
+          <VideoPlayer
             src={getVideoSrc()}
             historyItem={currentItem}
-            onTimeUpdate={handleTimeUpdate} 
+            onTimeUpdate={handleTimeUpdate}
             subtitles={subtitles}
             subtitleOffset={subtitleOffset}
             subtitleRate={subtitleRate}
@@ -346,8 +345,13 @@ function HomePageContent() {
               <Card>
                 <CardHeader>
                   <CardTitle>Video Source</CardTitle>
-                  <CardDescription>
-                    {currentItem ? `Now Playing: ${currentItem.title}` : 'Load video from a URL or a local file.'}
+                  <CardDescription className="flex flex-col gap-1">
+                    {currentItem ?
+                      <>
+                        <p>Now Playing:</p>
+                        {currentItem.title.split(".").map(n => <p>{n}</p>)}
+                      </>
+                      : 'Load video from a URL or a local file.'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -363,16 +367,16 @@ function HomePageContent() {
                       />
                       <Button onClick={handleUrlLoad}>Load</Button>
                       <TooltipProvider>
-                          <Tooltip>
-                              <TooltipTrigger asChild>
-                                  <Button onClick={handleProxyLoad} variant="outline" size="icon">
-                                      <Server className="h-4 w-4" />
-                                  </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                  <p>Load via server proxy</p>
-                              </TooltipContent>
-                          </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button onClick={handleProxyLoad} variant="outline" size="icon">
+                              <Server className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Load via server proxy</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </TooltipProvider>
                     </div>
                   </div>
@@ -392,30 +396,30 @@ function HomePageContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  
+
                   {(internalTextTracks.length > 0 || subtitles.length > 0) && (
                     <div className="space-y-2">
                       <Label>Active Subtitle</Label>
                       <Select
-                          value={activeTextTrackLabel ?? ""}
-                          onValueChange={(label) => setActiveTextTrackLabel(label || null)}
+                        value={activeTextTrackLabel ?? ""}
+                        onValueChange={(label) => setActiveTextTrackLabel(label || null)}
                       >
-                          <SelectTrigger>
-                              <SelectValue placeholder="Select a track" />
-                          </SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="">None</SelectItem>
-                              {internalTextTracks.map((track, i) => (
-                                  <SelectItem key={`${track.label}-${i}`} value={track.label}>
-                                      {track.label || `Track ${i+1}`} (Embedded)
-                                  </SelectItem>
-                              ))}
-                              {subtitles.map(sub => (
-                                <SelectItem key={sub.id} value={sub.label}>
-                                    {sub.label} (External)
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a track" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {internalTextTracks.map((track, i) => (
+                            <SelectItem key={`${track.label}-${i}`} value={track.label}>
+                              {track.label || `Track ${i + 1}`} (Embedded)
+                            </SelectItem>
+                          ))}
+                          {subtitles.map(sub => (
+                            <SelectItem key={sub.id} value={sub.label}>
+                              {sub.label} (External)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
                       </Select>
                     </div>
                   )}
@@ -441,7 +445,7 @@ function HomePageContent() {
                     </div>
                   )}
 
-                   <div className="space-y-4 pt-4 border-t">
+                  <div className="space-y-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2 text-sm">
                         <Timer className="h-4 w-4" />
@@ -461,7 +465,7 @@ function HomePageContent() {
                         </Button>
                       </div>
                     </div>
-                  
+
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2 text-sm">
                         <FastForward className="h-4 w-4" />
@@ -481,7 +485,7 @@ function HomePageContent() {
                         </Button>
                       </div>
                     </div>
-                  
+
                     <Button variant="outline" size="sm" onClick={resetSubtitleTiming}>
                       <RotateCcw className="mr-2 h-4 w-4" />
                       Reset Timing
@@ -499,53 +503,53 @@ function HomePageContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="audio-file">Load External Audio File</Label>
+                    <Input id="audio-file" type="file" onChange={handleAudioFileChange} accept="audio/*,.mp3,.wav,.ogg" />
+                  </div>
+
+                  {audioTrack ? (
                     <div className="space-y-2">
-                        <Label htmlFor="audio-file">Load External Audio File</Label>
-                        <Input id="audio-file" type="file" onChange={handleAudioFileChange} accept="audio/*,.mp3,.wav,.ogg" />
-                    </div>
-
-                    {audioTrack ? (
-                        <div className="space-y-2">
-                            <Label>Loaded Audio Track</Label>
-                            <div className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
-                                <span className="truncate">{audioTrack.name}</span>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={removeAudioTrack}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    ) : internalAudioTracks.length <= 1 ? (
-                        <div className="flex flex-col items-center justify-center text-center p-6 border-dashed border-2 rounded-md">
-                            <AudioLines className="w-10 h-10 text-muted-foreground/50 mb-2" />
-                            <p className="text-sm text-muted-foreground">No separate or multiple audio tracks.</p>
-                        </div>
-                    ) : null}
-
-                    {internalAudioTracks.length > 1 && (
-                      <div className="space-y-2 pt-4 border-t">
-                          <Label>Embedded Audio Tracks</Label>
-                          <Select
-                              value={activeAudioTrackId ?? ''}
-                              onValueChange={(id) => {
-                                  if (audioTrack) removeAudioTrack();
-                                  setActiveAudioTrackId(id);
-                              }}
-                              disabled={!!audioTrack}
-                          >
-                              <SelectTrigger>
-                                  <SelectValue placeholder="Select an audio track" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                  {internalAudioTracks.map(track => (
-                                      <SelectItem key={track.id} value={track.id}>
-                                          {track.label || `Track ${track.id}`} ({track.language})
-                                      </SelectItem>
-                                  ))}
-                              </SelectContent>
-                          </Select>
-                          {!!audioTrack && <p className="text-xs text-muted-foreground">Disable external audio to select embedded tracks.</p>}
+                      <Label>Loaded Audio Track</Label>
+                      <div className="flex items-center justify-between text-sm p-2 bg-muted rounded-md">
+                        <span className="truncate">{audioTrack.name}</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={removeAudioTrack}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                    )}
+                    </div>
+                  ) : internalAudioTracks.length <= 1 ? (
+                    <div className="flex flex-col items-center justify-center text-center p-6 border-dashed border-2 rounded-md">
+                      <AudioLines className="w-10 h-10 text-muted-foreground/50 mb-2" />
+                      <p className="text-sm text-muted-foreground">No separate or multiple audio tracks.</p>
+                    </div>
+                  ) : null}
+
+                  {internalAudioTracks.length > 1 && (
+                    <div className="space-y-2 pt-4 border-t">
+                      <Label>Embedded Audio Tracks</Label>
+                      <Select
+                        value={activeAudioTrackId ?? ''}
+                        onValueChange={(id) => {
+                          if (audioTrack) removeAudioTrack();
+                          setActiveAudioTrackId(id);
+                        }}
+                        disabled={!!audioTrack}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an audio track" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {internalAudioTracks.map(track => (
+                            <SelectItem key={track.id} value={track.id}>
+                              {track.label || `Track ${track.id}`} ({track.language})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {!!audioTrack && <p className="text-xs text-muted-foreground">Disable external audio to select embedded tracks.</p>}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

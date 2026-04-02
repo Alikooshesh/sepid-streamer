@@ -279,7 +279,7 @@ export function VideoPlayer({
     <div className="w-full">
       <AspectRatio ratio={16 / 9}>
         <video
-          key={src} // Re-mount when src changes to properly load new tracks
+          key={src}
           ref={videoRef}
           controls
           muted={!!audioSrc}
@@ -298,7 +298,7 @@ export function VideoPlayer({
             />
           ))}
         </video>
-        <audio ref={audioRef} crossOrigin="anonymous" />
+        <audio ref={audioRef} />
       </AspectRatio>
     </div>
   );
