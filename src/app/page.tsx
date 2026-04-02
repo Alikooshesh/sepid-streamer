@@ -24,13 +24,29 @@ import { VideoPlayer } from "@/components/video-player";
 import { useWatchHistory, WatchHistoryItem } from "@/hooks/use-watch-history";
 import { AppHeader } from "@/components/app-header";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Plus, Minus, RotateCcw, Timer, FastForward, AudioLines, Server } from "lucide-react";
+import { 
+  Trash2, 
+  Plus, 
+  Minus, 
+  RotateCcw, 
+  Timer, 
+  FastForward, 
+  AudioLines, 
+  Server, 
+  Sparkles, 
+  FileText, 
+  Clock,
+  Loader2
+} from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { analyzeVideo, type AnalyzeVideoOutput } from "@/ai/flows/analyze-video-flow";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
 interface SubtitleTrack {
   id: string;
@@ -63,6 +79,10 @@ function HomePageContent() {
   const [activeTextTrackLabel, setActiveTextTrackLabel] = useState<string | null>(null);
   const [activeAudioTrackId, setActiveAudioTrackId] = useState<string | null>(null);
 
+  // AI State
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<AnalyzeVideoOutput | null>(null);
+
 
   const resetSubtitleTiming = useCallback(() => {
     setSubtitleOffset(0);
@@ -90,6 +110,7 @@ function HomePageContent() {
       setInternalAudioTracks([]);
       setActiveTextTrackLabel(null);
       setActiveAudioTrackId(null);
+      setAiAnalysis(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentItem?.id]);
@@ -128,6 +149,7 @@ function HomePageContent() {
       lastPositionSeconds: 0,
     });
     setCurrentItem(newItem);
+    setUrlInput("");
   };
 
   const handleProxyLoad = () => {
@@ -314,6 +336,32 @@ function HomePageContent() {
     });
   }, [toast]);
 
+  const handleAIAnalysis = async () => {
+    if (!currentItem) return;
+    
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeVideo({
+        videoUrl: currentItem.sourceValue,
+        title: currentItem.title,
+      });
+      setAiAnalysis(result);
+      toast({
+        title: "Analysis Complete",
+        description: "AI has successfully summarized the video.",
+      });
+    } catch (error) {
+      console.error("AI Analysis failed", error);
+      toast({
+        variant: "destructive",
+        title: "AI Error",
+        description: "Could not analyze video content.",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
@@ -336,10 +384,11 @@ function HomePageContent() {
         </div>
         <aside className="w-96 border-l p-4 overflow-y-auto">
           <Tabs defaultValue="source">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="source">Source</TabsTrigger>
-              <TabsTrigger value="subtitles">Subtitles</TabsTrigger>
+              <TabsTrigger value="subtitles">Sub</TabsTrigger>
               <TabsTrigger value="audio">Audio</TabsTrigger>
+              <TabsTrigger value="ai">AI</TabsTrigger>
             </TabsList>
             <TabsContent value="source">
               <Card>
@@ -349,7 +398,7 @@ function HomePageContent() {
                     {currentItem ?
                       <>
                         <p>Now Playing:</p>
-                        {currentItem.title.split(".").map(n => <p>{n}</p>)}
+                        <p className="font-medium text-foreground">{currentItem.title}</p>
                       </>
                       : 'Load video from a URL or a local file.'}
                   </CardDescription>
@@ -549,6 +598,85 @@ function HomePageContent() {
                       </Select>
                       {!!audioTrack && <p className="text-xs text-muted-foreground">Disable external audio to select embedded tracks.</p>}
                     </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="ai">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    AI Assistant
+                  </CardTitle>
+                  <CardDescription>
+                    Generate summaries, transcripts, and chapters using AI.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!currentItem ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Load a video to use AI features.
+                    </p>
+                  ) : (
+                    <>
+                      <Button 
+                        onClick={handleAIAnalysis} 
+                        className="w-full" 
+                        disabled={isAnalyzing}
+                      >
+                        {isAnalyzing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Analyzing Content...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Analyze Video
+                          </>
+                        )}
+                      </Button>
+
+                      {aiAnalysis && (
+                        <div className="space-y-4 mt-4">
+                          <div className="space-y-1">
+                            <Label className="flex items-center gap-2 text-xs uppercase text-muted-foreground">
+                              <FileText className="w-3 h-3" />
+                              Summary
+                            </Label>
+                            <p className="text-sm leading-relaxed">{aiAnalysis.summary}</p>
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="flex items-center gap-2 text-xs uppercase text-muted-foreground">
+                              <AudioLines className="w-3 h-3" />
+                              Transcript Overview
+                            </Label>
+                            <ScrollArea className="h-32 rounded-md border p-2">
+                              <p className="text-sm text-muted-foreground italic">
+                                {aiAnalysis.transcript}
+                              </p>
+                            </ScrollArea>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-2 text-xs uppercase text-muted-foreground">
+                              <Clock className="w-3 h-3" />
+                              Chapters
+                            </Label>
+                            <div className="space-y-2">
+                              {aiAnalysis.chapters.map((chapter, i) => (
+                                <div key={i} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded-md">
+                                  <Badge variant="outline" className="font-mono">{chapter.timestamp}</Badge>
+                                  <span className="truncate">{chapter.title}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>
