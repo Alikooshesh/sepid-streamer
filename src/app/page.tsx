@@ -506,7 +506,7 @@ function HomePageContent() {
                       </Label>
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOffsetChange(-0.1)}>
-                          <偏离 className="h-4 w-4" />
+                          <Minus className="h-4 w-4" />
                         </Button>
                         <Input
                           readOnly
