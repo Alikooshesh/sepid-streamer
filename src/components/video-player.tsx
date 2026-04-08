@@ -55,9 +55,12 @@ export function VideoPlayer({
   const reportTracks = useCallback(() => {
     const video = videoRef.current;
     if (video) {
+        const textTracks = video.textTracks ? Array.from(video.textTracks).filter(t => t.kind === 'subtitles' || t.kind === 'captions') : [];
+        const audioTracks = video.audioTracks ? Array.from(video.audioTracks) : [];
+        
         onInternalTracksChangeRef.current({
-            text: video.textTracks ? Array.from(video.textTracks) : [],
-            audio: video.audioTracks ? Array.from(video.audioTracks) : [],
+            text: textTracks,
+            audio: audioTracks,
         });
     }
   }, []);
@@ -99,20 +102,29 @@ export function VideoPlayer({
     };
     
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('loadeddata', reportTracks);
+    video.addEventListener('canplay', reportTracks);
+    
     if (video.textTracks) {
       video.textTracks.addEventListener('addtrack', reportTracks);
+      video.textTracks.addEventListener('change', reportTracks);
     }
     if (video.audioTracks) {
         video.audioTracks.addEventListener('addtrack', reportTracks);
+        video.audioTracks.addEventListener('change', reportTracks);
     }
 
     return () => {
         video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        video.removeEventListener('loadeddata', reportTracks);
+        video.removeEventListener('canplay', reportTracks);
         if (video.textTracks) {
           video.textTracks.removeEventListener('addtrack', reportTracks);
+          video.textTracks.removeEventListener('change', reportTracks);
         }
         if (video.audioTracks) {
           video.audioTracks.removeEventListener('addtrack', reportTracks);
+          video.audioTracks.removeEventListener('change', reportTracks);
         }
     }
   }, [historyItem, reportTracks]);
@@ -206,7 +218,9 @@ export function VideoPlayer({
     if (!video || !video.textTracks) return;
     for (const track of Array.from(video.textTracks)) {
       if (track.kind === 'subtitles' || track.kind === 'captions') {
-        track.mode = track.label === activeTextTrackLabel ? 'showing' : 'hidden';
+        // Use functional matching to handle internal and external labels
+        const trackLabel = track.label || (track.language ? `Track (${track.language})` : 'Unknown');
+        track.mode = trackLabel === activeTextTrackLabel ? 'showing' : 'hidden';
       }
     }
   }, [activeTextTrackLabel]);
@@ -226,7 +240,7 @@ export function VideoPlayer({
     const adjustTrack = (track: TextTrack) => {
         if ((track.kind !== 'subtitles' && track.kind !== 'captions') || !track.cues) return;
 
-        const trackId = track.label || 'unknown';
+        const trackId = track.label || track.language || 'unknown';
         
         if (!originalCueTimesRef.current.has(trackId)) {
             const originalTimes = Array.from(track.cues).map(cue => ({ startTime: cue.startTime, endTime: cue.endTime }));
@@ -272,6 +286,7 @@ export function VideoPlayer({
         ref={videoRef}
         controls
         muted={!!audioSrc}
+        crossOrigin="anonymous"
         className="w-full h-full max-h-full rounded-lg bg-black shadow-2xl object-contain"
         autoPlay={!!src}
         onError={handleError}

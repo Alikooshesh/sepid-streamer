@@ -97,7 +97,6 @@ function HomePageContent() {
   }, []);
 
   const resetMediaAttachments = useCallback(() => {
-    // We use functional updates to clear state and revoke URLs without needing dependencies
     setSubtitles(prev => {
       prev.forEach(sub => URL.revokeObjectURL(sub.src));
       return [];
@@ -109,7 +108,6 @@ function HomePageContent() {
     resetSubtitleTiming();
   }, [resetSubtitleTiming]);
 
-  // Effect to reset all media state when the video source changes
   useEffect(() => {
     if (currentItem) {
       resetMediaAttachments();
@@ -121,7 +119,6 @@ function HomePageContent() {
     }
   }, [currentItem?.id, resetMediaAttachments]);
 
-  // General cleanup effect for object URLs on unmount
   useEffect(() => {
     return () => {
       setSubtitles(prev => {
@@ -135,7 +132,6 @@ function HomePageContent() {
     };
   }, []);
 
-  // Effect to load video from history via URL param
   useEffect(() => {
     const historyId = searchParams.get('historyId');
     if (historyId) {
@@ -160,7 +156,6 @@ function HomePageContent() {
       lastPositionSeconds: 0,
     });
     setCurrentItem(newItem);
-    // Note: urlInput is intentionally NOT cleared to satisfy user request
   };
 
   const handleProxyLoad = () => {
@@ -180,7 +175,6 @@ function HomePageContent() {
       title: "Loading via proxy",
       description: "The video will be streamed through the server."
     });
-    // Note: urlInput is intentionally NOT cleared to satisfy user request
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -320,23 +314,27 @@ function HomePageContent() {
   };
 
   const handleInternalTracksChange = useCallback(({ text, audio }: { text: TextTrack[], audio: AudioTrack[] }) => {
-    const subtitleTracks = text.filter(t => t.kind === 'subtitles' || t.kind === 'captions');
-    setInternalTextTracks(subtitleTracks);
+    setInternalTextTracks(text);
     setInternalAudioTracks(audio);
 
-    // Use functional updates for labels/ids to avoid callback dependency loops
     setActiveTextTrackLabel(prev => {
-      if (!prev && subtitleTracks.length > 0) {
-        const defaultTrack = subtitleTracks.find(t => t.mode === 'showing') || subtitleTracks.find(t => t.language.startsWith('en')) || subtitleTracks[0];
-        return defaultTrack?.label || null;
+      if (!prev && text.length > 0) {
+        const showing = text.find(t => t.mode === 'showing');
+        if (showing) return showing.label || `Track (${showing.language})`;
+        const english = text.find(t => t.language?.startsWith('en'));
+        if (english) return english.label || `Track (${english.language})`;
+        return text[0].label || `Track (${text[0].language})`;
       }
       return prev;
     });
 
     setActiveAudioTrackId(prev => {
       if (!prev && audio.length > 0) {
-        const defaultTrack = audio.find(t => t.enabled) || audio.find(t => t.language.startsWith('en')) || audio[0];
-        return defaultTrack?.id || null;
+        const enabled = audio.find(t => t.enabled);
+        if (enabled) return enabled.id;
+        const english = audio.find(t => t.language?.startsWith('en'));
+        if (english) return english.id;
+        return audio[0].id;
       }
       return prev;
     });
@@ -512,11 +510,14 @@ function HomePageContent() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="">None</SelectItem>
-                            {internalTextTracks.map((track, i) => (
-                              <SelectItem key={`${track.label}-${i}`} value={track.label}>
-                                {track.label || `Track ${i + 1}`} (Embedded)
-                              </SelectItem>
-                            ))}
+                            {internalTextTracks.map((track, i) => {
+                              const label = track.label || (track.language ? `Track (${track.language})` : `Track ${i + 1}`);
+                              return (
+                                <SelectItem key={`${label}-${i}`} value={label}>
+                                  {label} (Embedded)
+                                </SelectItem>
+                              );
+                            })}
                             {subtitles.map(sub => (
                               <SelectItem key={sub.id} value={sub.label}>
                                 {sub.label} (External)
