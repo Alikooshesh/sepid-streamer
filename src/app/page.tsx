@@ -132,6 +132,10 @@ function HomePageContent() {
       const item = history.find(h => h.id === historyId);
       if (item) {
         setCurrentItem(item);
+        // If the resumed item has a URL, show it in the input
+        if (item.sourceType === 'url') {
+          setUrlInput(item.sourceValue);
+        }
         // Clear the query param
         router.replace('/', { scroll: false });
       }
@@ -149,7 +153,7 @@ function HomePageContent() {
       lastPositionSeconds: 0,
     });
     setCurrentItem(newItem);
-    setUrlInput("");
+    // URL input is NOT cleared anymore as per user request
   };
 
   const handleProxyLoad = () => {
@@ -165,7 +169,7 @@ function HomePageContent() {
     });
 
     setCurrentItem(itemToPlay);
-    setUrlInput("");
+    // URL input is NOT cleared anymore as per user request
     toast({
       title: "Loading via proxy",
       description: "The video will be streamed through the server."
@@ -502,7 +506,7 @@ function HomePageContent() {
                       </Label>
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOffsetChange(-0.1)}>
-                          <Minus className="h-4 w-4" />
+                          <偏离 className="h-4 w-4" />
                         </Button>
                         <Input
                           readOnly
