@@ -55,6 +55,8 @@ export function VideoPlayer({
   const reportTracks = useCallback(() => {
     const video = videoRef.current;
     if (video) {
+        // Attempt to get tracks. Browsers might block this for direct cross-origin URLs without CORS,
+        // but it works for local files, same-origin (proxied), and some specific browser environments.
         const textTracks = video.textTracks ? Array.from(video.textTracks).filter(t => t.kind === 'subtitles' || t.kind === 'captions') : [];
         const audioTracks = video.audioTracks ? Array.from(video.audioTracks) : [];
         
@@ -104,28 +106,27 @@ export function VideoPlayer({
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('loadeddata', reportTracks);
     video.addEventListener('canplay', reportTracks);
+    video.addEventListener('play', reportTracks);
     
+    // Listen for track changes directly
     if (video.textTracks) {
       video.textTracks.addEventListener('addtrack', reportTracks);
       video.textTracks.addEventListener('change', reportTracks);
     }
-    if (video.audioTracks) {
-        video.audioTracks.addEventListener('addtrack', reportTracks);
-        video.audioTracks.addEventListener('change', reportTracks);
-    }
+    
+    // Poll for tracks as a fallback for some browsers that don't fire events immediately
+    const pollInterval = setInterval(reportTracks, 2000);
 
     return () => {
         video.removeEventListener('loadedmetadata', handleLoadedMetadata);
         video.removeEventListener('loadeddata', reportTracks);
         video.removeEventListener('canplay', reportTracks);
+        video.removeEventListener('play', reportTracks);
         if (video.textTracks) {
           video.textTracks.removeEventListener('addtrack', reportTracks);
           video.textTracks.removeEventListener('change', reportTracks);
         }
-        if (video.audioTracks) {
-          video.audioTracks.removeEventListener('addtrack', reportTracks);
-          video.audioTracks.removeEventListener('change', reportTracks);
-        }
+        clearInterval(pollInterval);
     }
   }, [historyItem, reportTracks]);
 
@@ -216,20 +217,27 @@ export function VideoPlayer({
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !video.textTracks) return;
-    for (const track of Array.from(video.textTracks)) {
-      if (track.kind === 'subtitles' || track.kind === 'captions') {
-        // Use functional matching to handle internal and external labels
-        const trackLabel = track.label || (track.language ? `Track (${track.language})` : 'Unknown');
-        track.mode = trackLabel === activeTextTrackLabel ? 'showing' : 'hidden';
+    try {
+      for (const track of Array.from(video.textTracks)) {
+        if (track.kind === 'subtitles' || track.kind === 'captions') {
+          const trackLabel = track.label || (track.language ? `Track (${track.language})` : 'Unknown');
+          track.mode = trackLabel === activeTextTrackLabel ? 'showing' : 'hidden';
+        }
       }
+    } catch (e) {
+      // Inaccessible due to CORS
     }
   }, [activeTextTrackLabel]);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !video.audioTracks) return;
-    for (const track of Array.from(video.audioTracks)) {
-      track.enabled = track.id === activeAudioTrackId;
+    try {
+      for (const track of Array.from(video.audioTracks)) {
+        track.enabled = track.id === activeAudioTrackId;
+      }
+    } catch (e) {
+      // Inaccessible due to CORS
     }
   }, [activeAudioTrackId]);
 
@@ -262,14 +270,18 @@ export function VideoPlayer({
         }
     }
 
-    const activeTrack = Array.from(video.textTracks).find(t => t.mode === 'showing');
+    try {
+      const activeTrack = Array.from(video.textTracks).find(t => t.mode === 'showing');
 
-    if (activeTrack) {
-        if (activeTrack.cues && activeTrack.cues.length > 0) {
-            adjustTrack(activeTrack);
-        } else {
-            activeTrack.addEventListener('load', () => adjustTrack(activeTrack), { once: true });
-        }
+      if (activeTrack) {
+          if (activeTrack.cues && activeTrack.cues.length > 0) {
+              adjustTrack(activeTrack);
+          } else {
+              activeTrack.addEventListener('load', () => adjustTrack(activeTrack), { once: true });
+          }
+      }
+    } catch (e) {
+      // Inaccessible
     }
     
   }, [subtitleOffset, subtitleRate, activeTextTrackLabel]);
@@ -286,7 +298,6 @@ export function VideoPlayer({
         ref={videoRef}
         controls
         muted={!!audioSrc}
-        crossOrigin="anonymous"
         className="w-full h-full max-h-full rounded-lg bg-black shadow-2xl object-contain"
         autoPlay={!!src}
         onError={handleError}
