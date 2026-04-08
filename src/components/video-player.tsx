@@ -54,16 +54,24 @@ export function VideoPlayer({
   
   const reportTracks = useCallback(() => {
     const video = videoRef.current;
-    if (video) {
-        // Attempt to get tracks. Browsers might block this for direct cross-origin URLs without CORS,
-        // but it works for local files, same-origin (proxied), and some specific browser environments.
-        const textTracks = video.textTracks ? Array.from(video.textTracks).filter(t => t.kind === 'subtitles' || t.kind === 'captions') : [];
-        const audioTracks = video.audioTracks ? Array.from(video.audioTracks) : [];
-        
-        onInternalTracksChangeRef.current({
-            text: textTracks,
-            audio: audioTracks,
-        });
+    if (!video) return;
+
+    try {
+      // Browsers restrict access to track lists for cross-origin media without CORS.
+      // We try-catch to avoid crashing if access is denied.
+      const textTracks = video.textTracks ? Array.from(video.textTracks).filter(t => t.kind === 'subtitles' || t.kind === 'captions') : [];
+      
+      // audioTracks is a non-standard API supported in some browsers (e.g. Safari, or Chrome with flags)
+      const audioTracks = (video as any).audioTracks ? Array.from((video as any).audioTracks) as AudioTrack[] : [];
+      
+      onInternalTracksChangeRef.current({
+          text: textTracks,
+          audio: audioTracks,
+      });
+    } catch (e) {
+      // Inaccessible due to browser security restrictions on cross-origin media.
+      // We just report empty lists to the custom UI.
+      onInternalTracksChangeRef.current({ text: [], audio: [] });
     }
   }, []);
 
@@ -114,8 +122,8 @@ export function VideoPlayer({
       video.textTracks.addEventListener('change', reportTracks);
     }
     
-    // Poll for tracks as a fallback for some browsers that don't fire events immediately
-    const pollInterval = setInterval(reportTracks, 2000);
+    // Poll more aggressively initially to catch tracks as they load
+    const pollInterval = setInterval(reportTracks, 1000);
 
     return () => {
         video.removeEventListener('loadedmetadata', handleLoadedMetadata);
@@ -136,9 +144,12 @@ export function VideoPlayer({
       if (src && videoRef.current.src !== src) {
         videoRef.current.src = src;
         videoRef.current.load();
+        // Reset track lists immediately when source changes
+        onInternalTracksChangeRef.current({ text: [], audio: [] });
       } else if (!src && videoRef.current.src) {
         videoRef.current.removeAttribute('src');
         videoRef.current.load();
+        onInternalTracksChangeRef.current({ text: [], audio: [] });
       }
     }
   }, [src]);
@@ -177,7 +188,7 @@ export function VideoPlayer({
     const audio = audioRef.current;
     if (!video || !audio) return;
 
-    const syncPlay = () => audio.play();
+    const syncPlay = () => audio.play().catch(() => {});
     const syncPause = () => audio.pause();
     const syncTime = () => { audio.currentTime = video.currentTime; };
     const syncVolumeAndMute = () => {
@@ -201,7 +212,7 @@ export function VideoPlayer({
     if (video.paused) {
         syncPause();
     } else {
-        syncPlay().catch(e => console.error("Audio play failed", e));
+        syncPlay().catch(e => console.error("Audio sync play failed", e));
     }
 
     return () => {
@@ -225,19 +236,22 @@ export function VideoPlayer({
         }
       }
     } catch (e) {
-      // Inaccessible due to CORS
+      // Inaccessible due to CORS restrictions
     }
   }, [activeTextTrackLabel]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !video.audioTracks) return;
+    if (!video) return;
     try {
-      for (const track of Array.from(video.audioTracks)) {
-        track.enabled = track.id === activeAudioTrackId;
+      const audioTracks = (video as any).audioTracks;
+      if (audioTracks) {
+        for (const track of Array.from(audioTracks) as any[]) {
+          track.enabled = track.id === activeAudioTrackId;
+        }
       }
     } catch (e) {
-      // Inaccessible due to CORS
+      // Inaccessible
     }
   }, [activeAudioTrackId]);
 
@@ -292,7 +306,7 @@ export function VideoPlayer({
   }, [src]);
 
   return (
-    <div className="w-full h-full flex items-center justify-center">
+    <div className="w-full h-full flex items-center justify-center relative">
       <video
         key={src}
         ref={videoRef}

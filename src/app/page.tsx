@@ -39,7 +39,8 @@ import {
   Clock,
   Loader2,
   PanelRight,
-  Settings2
+  Settings2,
+  AlertCircle
 } from "lucide-react";
 import {
   Tooltip,
@@ -105,16 +106,16 @@ function HomePageContent() {
       if (prev) URL.revokeObjectURL(prev.url);
       return null;
     });
+    setInternalTextTracks([]);
+    setInternalAudioTracks([]);
+    setActiveTextTrackLabel(null);
+    setActiveAudioTrackId(null);
     resetSubtitleTiming();
   }, [resetSubtitleTiming]);
 
   useEffect(() => {
     if (currentItem) {
       resetMediaAttachments();
-      setInternalTextTracks([]);
-      setInternalAudioTracks([]);
-      setActiveTextTrackLabel(null);
-      setActiveAudioTrackId(null);
       setAiAnalysis(null);
     }
   }, [currentItem?.id, resetMediaAttachments]);
@@ -330,9 +331,9 @@ function HomePageContent() {
 
     setActiveAudioTrackId(prev => {
       if (!prev && audio.length > 0) {
-        const enabled = audio.find(t => t.enabled);
+        const enabled = (audio as any[]).find(t => t.enabled);
         if (enabled) return enabled.id;
-        const english = audio.find(t => t.language?.startsWith('en'));
+        const english = (audio as any[]).find(t => t.language?.startsWith('en'));
         if (english) return english.id;
         return audio[0].id;
       }
@@ -525,6 +526,15 @@ function HomePageContent() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                    )}
+
+                    {currentItem?.sourceType === 'url' && internalTextTracks.length === 0 && !currentItem.sourceValue.startsWith('/') && (
+                      <div className="p-3 bg-muted/50 rounded-md border border-dashed flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-muted-foreground leading-tight">
+                          Embedded tracks for direct cross-origin links may only be available via the <strong>native CC button</strong> in the player. Use the <strong>Proxy</strong> to enable custom selection.
+                        </p>
                       </div>
                     )}
 
