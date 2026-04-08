@@ -68,7 +68,7 @@ function HomePageContent() {
   const [urlInput, setUrlInput] = useState("");
   const [currentItem, setCurrentItem] = useState<WatchHistoryItem | null>(null);
 
-  // UI State - Sidebar closed by default as per user request
+  // UI State - Sidebar closed by default
   const [showSidebar, setShowSidebar] = useState(false);
 
   // External media attachments
@@ -137,7 +137,7 @@ function HomePageContent() {
       const item = history.find(h => h.id === historyId);
       if (item) {
         setCurrentItem(item);
-        // If the resumed item has a URL, show it in the input as per user request
+        // Populate URL input if it's a URL source
         if (item.sourceType === 'url') {
           setUrlInput(item.sourceValue);
         }
@@ -157,7 +157,7 @@ function HomePageContent() {
       lastPositionSeconds: 0,
     });
     setCurrentItem(newItem);
-    // URL input is not cleared as per user request
+    // Note: urlInput is NOT cleared as per user request
   };
 
   const handleProxyLoad = () => {
@@ -177,7 +177,7 @@ function HomePageContent() {
       title: "Loading via proxy",
       description: "The video will be streamed through the server."
     });
-    // URL input is not cleared as per user request
+    // Note: urlInput is NOT cleared as per user request
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -375,8 +375,8 @@ function HomePageContent() {
     <div className="flex flex-col h-screen bg-background text-foreground">
       <AppHeader />
       <main className="flex flex-1 overflow-hidden relative">
-        <div className="flex-1 p-4 flex flex-col min-w-0">
-          <div className="flex justify-end mb-4">
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex justify-end p-4">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -389,7 +389,7 @@ function HomePageContent() {
                     {showSidebar ? (
                        <>
                         <PanelRight className="h-4 w-4" />
-                        Close Sidebar
+                        Close Controls
                        </>
                     ) : (
                       <>
@@ -405,7 +405,7 @@ function HomePageContent() {
               </Tooltip>
             </TooltipProvider>
           </div>
-          <div className="flex-1 flex items-center justify-center bg-black/5 rounded-xl border border-dashed p-4 overflow-hidden">
+          <div className="flex-1 flex items-center justify-center overflow-hidden">
             <VideoPlayer
               src={getVideoSrc()}
               historyItem={currentItem}
