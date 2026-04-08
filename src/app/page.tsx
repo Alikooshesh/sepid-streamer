@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, Suspense, useCallback } from "react";
@@ -96,17 +97,17 @@ function HomePageContent() {
   }, []);
 
   const resetMediaAttachments = useCallback(() => {
-    // Revoke old subtitle URLs
-    subtitles.forEach(sub => URL.revokeObjectURL(sub.src));
-    setSubtitles([]);
+    // We use functional updates to clear state and revoke URLs without needing dependencies
+    setSubtitles(prev => {
+      prev.forEach(sub => URL.revokeObjectURL(sub.src));
+      return [];
+    });
+    setAudioTrack(prev => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
     resetSubtitleTiming();
-
-    // Revoke old audio URL
-    if (audioTrack) {
-      URL.revokeObjectURL(audioTrack.url);
-      setAudioTrack(null);
-    }
-  }, [subtitles, audioTrack, resetSubtitleTiming]);
+  }, [resetSubtitleTiming]);
 
   // Effect to reset all media state when the video source changes
   useEffect(() => {
@@ -118,17 +119,21 @@ function HomePageContent() {
       setActiveAudioTrackId(null);
       setAiAnalysis(null);
     }
-  }, [currentItem?.id, resetMediaAttachments, resetSubtitleTiming]);
+  }, [currentItem?.id, resetMediaAttachments]);
 
-  // General cleanup effect for object URLs
+  // General cleanup effect for object URLs on unmount
   useEffect(() => {
     return () => {
-      subtitles.forEach(sub => URL.revokeObjectURL(sub.src));
-      if (audioTrack) {
-        URL.revokeObjectURL(audioTrack.url);
-      }
+      setSubtitles(prev => {
+        prev.forEach(sub => URL.revokeObjectURL(sub.src));
+        return [];
+      });
+      setAudioTrack(prev => {
+        if (prev) URL.revokeObjectURL(prev.url);
+        return null;
+      });
     };
-  }, [subtitles, audioTrack]);
+  }, []);
 
   // Effect to load video from history via URL param
   useEffect(() => {
@@ -137,11 +142,9 @@ function HomePageContent() {
       const item = history.find(h => h.id === historyId);
       if (item) {
         setCurrentItem(item);
-        // Populate URL input if it's a URL source
         if (item.sourceType === 'url') {
           setUrlInput(item.sourceValue);
         }
-        // Clear the query param
         router.replace('/', { scroll: false });
       }
     }
@@ -157,7 +160,6 @@ function HomePageContent() {
       lastPositionSeconds: 0,
     });
     setCurrentItem(newItem);
-    // Note: urlInput is NOT cleared as per user request
   };
 
   const handleProxyLoad = () => {
@@ -177,7 +179,6 @@ function HomePageContent() {
       title: "Loading via proxy",
       description: "The video will be streamed through the server."
     });
-    // Note: urlInput is NOT cleared as per user request
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,7 +193,7 @@ function HomePageContent() {
       });
       setCurrentItem(newItem);
     }
-    event.target.value = ""; // Reset file input
+    event.target.value = ""; 
   };
 
   const handleTimeUpdate = (time: number, duration: number) => {
@@ -268,19 +269,21 @@ function HomePageContent() {
     };
 
     setSubtitles(prev => [...prev, newSubtitle]);
-    setActiveTextTrackLabel(newSubtitle.label); // Auto-select the newly added track
-    event.target.value = ""; // Reset file input
+    setActiveTextTrackLabel(newSubtitle.label); 
+    event.target.value = ""; 
   };
 
   const removeSubtitle = (id: string) => {
-    const subToRemove = subtitles.find(s => s.id === id);
-    if (subToRemove) {
-      if (activeTextTrackLabel === subToRemove.label) {
-        setActiveTextTrackLabel(null);
+    setSubtitles(prev => {
+      const subToRemove = prev.find(s => s.id === id);
+      if (subToRemove) {
+        if (activeTextTrackLabel === subToRemove.label) {
+          setActiveTextTrackLabel(null);
+        }
+        URL.revokeObjectURL(subToRemove.src);
       }
-      URL.revokeObjectURL(subToRemove.src);
-    }
-    setSubtitles(prev => prev.filter(s => s.id !== id));
+      return prev.filter(s => s.id !== id);
+    });
   };
 
   const handleOffsetChange = (delta: number) => {
@@ -290,29 +293,28 @@ function HomePageContent() {
   const handleRateChange = (delta: number) => {
     setSubtitleRate(prev => {
       const newRate = parseFloat((prev + delta).toFixed(2));
-      return Math.max(0.1, newRate); // Prevent rate from being 0 or negative
+      return Math.max(0.1, newRate); 
     });
   };
 
   const handleAudioFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (audioTrack) {
-        URL.revokeObjectURL(audioTrack.url);
-      }
-      const url = URL.createObjectURL(file);
-      setAudioTrack({ url, name: file.name });
+      setAudioTrack(prev => {
+        if (prev) URL.revokeObjectURL(prev.url);
+        return { url: URL.createObjectURL(file), name: file.name };
+      });
       toast({ title: "Audio track loaded", description: file.name });
     }
-    event.target.value = ""; // Reset file input
+    event.target.value = ""; 
   };
 
   const removeAudioTrack = () => {
-    if (audioTrack) {
-      URL.revokeObjectURL(audioTrack.url);
-      setAudioTrack(null);
-      toast({ title: "Audio track removed" });
-    }
+    setAudioTrack(prev => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    toast({ title: "Audio track removed" });
   };
 
   const handleInternalTracksChange = useCallback(({ text, audio }: { text: TextTrack[], audio: AudioTrack[] }) => {
@@ -320,20 +322,23 @@ function HomePageContent() {
     setInternalTextTracks(subtitleTracks);
     setInternalAudioTracks(audio);
 
-    if (!activeTextTrackLabel && subtitleTracks.length > 0) {
-      const defaultTrack = subtitleTracks.find(t => t.mode === 'showing') || subtitleTracks.find(t => t.language.startsWith('en')) || subtitleTracks[0];
-      if (defaultTrack) {
-        setActiveTextTrackLabel(defaultTrack.label);
+    // Use functional updates for labels/ids to avoid callback dependency loops
+    setActiveTextTrackLabel(prev => {
+      if (!prev && subtitleTracks.length > 0) {
+        const defaultTrack = subtitleTracks.find(t => t.mode === 'showing') || subtitleTracks.find(t => t.language.startsWith('en')) || subtitleTracks[0];
+        return defaultTrack?.label || null;
       }
-    }
+      return prev;
+    });
 
-    if (!activeAudioTrackId && audio.length > 0) {
-      const defaultTrack = audio.find(t => t.enabled) || audio.find(t => t.language.startsWith('en')) || audio[0];
-      if (defaultTrack) {
-        setActiveAudioTrackId(defaultTrack.id);
+    setActiveAudioTrackId(prev => {
+      if (!prev && audio.length > 0) {
+        const defaultTrack = audio.find(t => t.enabled) || audio.find(t => t.language.startsWith('en')) || audio[0];
+        return defaultTrack?.id || null;
       }
-    }
-  }, [activeTextTrackLabel, activeAudioTrackId]);
+      return prev;
+    });
+  }, []);
 
   const handleVideoError = useCallback((message: string) => {
     toast({
