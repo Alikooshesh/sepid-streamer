@@ -160,6 +160,7 @@ function HomePageContent() {
       lastPositionSeconds: 0,
     });
     setCurrentItem(newItem);
+    // Note: urlInput is intentionally NOT cleared to satisfy user request
   };
 
   const handleProxyLoad = () => {
@@ -179,6 +180,7 @@ function HomePageContent() {
       title: "Loading via proxy",
       description: "The video will be streamed through the server."
     });
+    // Note: urlInput is intentionally NOT cleared to satisfy user request
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -410,20 +412,22 @@ function HomePageContent() {
               </Tooltip>
             </TooltipProvider>
           </div>
-          <div className="flex-1 flex items-center justify-center overflow-hidden">
-            <VideoPlayer
-              src={getVideoSrc()}
-              historyItem={currentItem}
-              onTimeUpdate={handleTimeUpdate}
-              subtitles={subtitles}
-              subtitleOffset={subtitleOffset}
-              subtitleRate={subtitleRate}
-              audioSrc={audioTrack?.url ?? null}
-              onInternalTracksChange={handleInternalTracksChange}
-              activeTextTrackLabel={activeTextTrackLabel}
-              activeAudioTrackId={activeAudioTrackId}
-              onError={handleVideoError}
-            />
+          <div className="flex-1 flex items-center justify-center overflow-hidden p-4">
+            <div className="w-full h-full max-h-[calc(100vh-135px)] flex items-center justify-center">
+              <VideoPlayer
+                src={getVideoSrc()}
+                historyItem={currentItem}
+                onTimeUpdate={handleTimeUpdate}
+                subtitles={subtitles}
+                subtitleOffset={subtitleOffset}
+                subtitleRate={subtitleRate}
+                audioSrc={audioTrack?.url ?? null}
+                onInternalTracksChange={handleInternalTracksChange}
+                activeTextTrackLabel={activeTextTrackLabel}
+                activeAudioTrackId={activeAudioTrackId}
+                onError={handleVideoError}
+              />
+            </div>
           </div>
         </div>
 

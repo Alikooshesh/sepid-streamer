@@ -1,7 +1,7 @@
+
 "use client";
 
 import { useRef, useEffect, useCallback } from "react";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { WatchHistoryItem } from "@/hooks/use-watch-history";
 
 interface SubtitleTrack {
@@ -64,7 +64,6 @@ export function VideoPlayer({
 
   const handleError = useCallback(() => {
     const video = videoRef.current;
-    // Don't trigger error if there's no source, as this can happen on initial load
     if (!video || !video.error || !onErrorRef.current || !video.src) return;
 
     let message = `An unknown error occurred. Code: ${video.error.code}.`;
@@ -140,12 +139,11 @@ export function VideoPlayer({
       if (!video.paused && video.duration && !isNaN(video.duration)) {
         onTimeUpdateRef.current(video.currentTime, video.duration);
       }
-    }, 5000); // Report every 5 seconds
+    }, 5000); 
 
     return () => clearInterval(interval);
   }, []);
   
-  // Effect for handling separate audio source
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -161,7 +159,6 @@ export function VideoPlayer({
     }
   }, [audioSrc]);
   
-  // Effect for synchronizing video and audio playback
   useEffect(() => {
     const video = videoRef.current;
     const audio = audioRef.current;
@@ -185,7 +182,6 @@ export function VideoPlayer({
     video.addEventListener('volumechange', syncVolumeAndMute);
     video.addEventListener('ratechange', syncRate);
 
-    // Initial sync
     syncTime();
     syncVolumeAndMute();
     syncRate();
@@ -205,7 +201,6 @@ export function VideoPlayer({
     }
   }, [audioSrc]);
 
-  // Effect to manage which subtitle track is showing
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !video.textTracks) return;
@@ -216,7 +211,6 @@ export function VideoPlayer({
     }
   }, [activeTextTrackLabel]);
 
-  // Effect to manage which audio track is enabled
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !video.audioTracks) return;
@@ -225,12 +219,10 @@ export function VideoPlayer({
     }
   }, [activeAudioTrackId]);
 
-  // Effect to adjust subtitle timings
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !video.textTracks) return;
 
-    // This function will adjust timings for a given track
     const adjustTrack = (track: TextTrack) => {
         if ((track.kind !== 'subtitles' && track.kind !== 'captions') || !track.cues) return;
 
@@ -256,7 +248,6 @@ export function VideoPlayer({
         }
     }
 
-    // Find the currently active track and apply adjustments
     const activeTrack = Array.from(video.textTracks).find(t => t.mode === 'showing');
 
     if (activeTrack) {
@@ -270,36 +261,33 @@ export function VideoPlayer({
   }, [subtitleOffset, subtitleRate, activeTextTrackLabel]);
 
 
-  // Effect to clear original cue times when source changes to prevent memory leaks
   useEffect(() => {
     originalCueTimesRef.current.clear();
   }, [src]);
 
   return (
-    <div className="w-full">
-      <AspectRatio ratio={16 / 9}>
-        <video
-          key={src}
-          ref={videoRef}
-          controls
-          muted={!!audioSrc}
-          className="w-full h-full rounded-lg bg-black"
-          autoPlay={!!src}
-          onError={handleError}
-        >
-          {subtitles?.map((sub) => (
-            <track
-              key={sub.id}
-              kind="subtitles"
-              src={sub.src}
-              srcLang={sub.lang}
-              label={sub.label}
-              default={sub.default}
-            />
-          ))}
-        </video>
-        <audio ref={audioRef} />
-      </AspectRatio>
+    <div className="w-full h-full flex items-center justify-center">
+      <video
+        key={src}
+        ref={videoRef}
+        controls
+        muted={!!audioSrc}
+        className="w-full h-full max-h-full rounded-lg bg-black shadow-2xl object-contain"
+        autoPlay={!!src}
+        onError={handleError}
+      >
+        {subtitles?.map((sub) => (
+          <track
+            key={sub.id}
+            kind="subtitles"
+            src={sub.src}
+            srcLang={sub.lang}
+            label={sub.label}
+            default={sub.default}
+          />
+        ))}
+      </video>
+      <audio ref={audioRef} />
     </div>
   );
 }
