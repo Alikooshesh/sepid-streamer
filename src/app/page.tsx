@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useEffect, Suspense, useCallback } from "react";
+import { useState, useEffect, Suspense, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Card,
@@ -24,6 +25,7 @@ import { VideoPlayer } from "@/components/video-player";
 import { useWatchHistory, WatchHistoryItem } from "@/hooks/use-watch-history";
 import { AppHeader } from "@/components/app-header";
 import { useToast } from "@/hooks/use-toast";
+import { useSeries, VideoInSeries } from "@/hooks/use-series";
 import { 
   Trash2, 
   Plus, 
@@ -39,7 +41,10 @@ import {
   Loader2,
   PanelRight,
   Settings2,
-  AlertCircle
+  AlertCircle,
+  SkipBack,
+  SkipForward,
+  Clapperboard
 } from "lucide-react";
 import {
   Tooltip,
@@ -64,6 +69,7 @@ function HomePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { history, addToHistory, updateHistoryItem } = useWatchHistory();
+  const { series } = useSeries();
   const { toast } = useToast();
 
   const [urlInput, setUrlInput] = useState("");
@@ -89,6 +95,27 @@ function HomePageContent() {
   // AI State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AnalyzeVideoOutput | null>(null);
+
+  // Series Navigation State
+  const activeSeries = useMemo(() => {
+    if (!currentItem) return null;
+    return series.find(s => s.videos.some(v => v.id === currentItem.id));
+  }, [currentItem, series]);
+
+  const videoIndex = useMemo(() => {
+    if (!activeSeries || !currentItem) return -1;
+    return activeSeries.videos.findIndex(v => v.id === currentItem.id);
+  }, [activeSeries, currentItem]);
+
+  const nextEpisode = useMemo(() => {
+    if (!activeSeries || videoIndex === -1 || videoIndex >= activeSeries.videos.length - 1) return null;
+    return activeSeries.videos[videoIndex + 1];
+  }, [activeSeries, videoIndex]);
+
+  const prevEpisode = useMemo(() => {
+    if (!activeSeries || videoIndex <= 0) return null;
+    return activeSeries.videos[videoIndex - 1];
+  }, [activeSeries, videoIndex]);
 
   const resetSubtitleTiming = useCallback(() => {
     setSubtitleOffset(0);
@@ -121,17 +148,33 @@ function HomePageContent() {
   useEffect(() => {
     const historyId = searchParams.get('historyId');
     if (historyId) {
-      const item = history.find(h => h.id === historyId);
+      let item = history.find(h => h.id === historyId);
+      
+      // If not in history, look in series
+      if (!item) {
+        for (const s of series) {
+          const v = s.videos.find(v => v.id === historyId);
+          if (v) {
+            item = addToHistory({
+              title: v.title,
+              sourceType: v.sourceType,
+              sourceValue: v.sourceValue,
+              lastPositionSeconds: 0,
+            }, v.id);
+            break;
+          }
+        }
+      }
+
       if (item) {
         setCurrentItem(item);
         if (item.sourceType === 'url') {
-          // Sync URL input when resuming from history
           setUrlInput(item.sourceValue);
         }
         router.replace('/', { scroll: false });
       }
     }
-  }, [searchParams, history, router]);
+  }, [searchParams, history, series, router, addToHistory]);
 
   const handleUrlLoad = () => {
     if (!urlInput) return;
@@ -143,7 +186,6 @@ function HomePageContent() {
       lastPositionSeconds: 0,
     });
     setCurrentItem(newItem);
-    // URL input is NOT cleared, as per user request.
   };
 
   const handleProxyLoad = () => {
@@ -176,7 +218,7 @@ function HomePageContent() {
         lastPositionSeconds: 0,
       });
       setCurrentItem(newItem);
-      setUrlInput(""); // Clear URL input when a local file is loaded
+      setUrlInput("");
     }
     event.target.value = ""; 
   };
@@ -364,6 +406,16 @@ function HomePageContent() {
     }
   };
 
+  const handlePlayEpisode = (video: VideoInSeries) => {
+    const newItem = addToHistory({
+      title: video.title,
+      sourceType: video.sourceType,
+      sourceValue: video.sourceValue,
+      lastPositionSeconds: 0,
+    }, video.id);
+    setCurrentItem(newItem);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <AppHeader />
@@ -430,6 +482,47 @@ function HomePageContent() {
                 <TabsTrigger value="ai">AI</TabsTrigger>
               </TabsList>
               <TabsContent value="source" className="space-y-4">
+                {activeSeries && (
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-2 text-primary">
+                        <Clapperboard className="h-4 w-4" />
+                        <CardTitle className="text-sm font-bold uppercase tracking-wider">Series Navigation</CardTitle>
+                      </div>
+                      <CardDescription className="text-xs font-semibold text-foreground line-clamp-1">
+                        {activeSeries.title}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1" 
+                          disabled={!prevEpisode}
+                          onClick={() => prevEpisode && handlePlayEpisode(prevEpisode)}
+                        >
+                          <SkipBack className="h-4 w-4 mr-2" />
+                          Previous
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1" 
+                          disabled={!nextEpisode}
+                          onClick={() => nextEpisode && handlePlayEpisode(nextEpisode)}
+                        >
+                          Next
+                          <SkipForward className="h-4 w-4 ml-2" />
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground text-center mt-3">
+                        Episode {videoIndex + 1} of {activeSeries.videos.length}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg">Video Source</CardTitle>

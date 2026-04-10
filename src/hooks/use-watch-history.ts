@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -37,10 +38,10 @@ export function useWatchHistory() {
     }
   }, []);
 
-  const addToHistory = useCallback((item: Omit<WatchHistoryItem, 'id' | 'updatedAt'>) => {
+  const addToHistory = useCallback((item: Omit<WatchHistoryItem, 'id' | 'updatedAt'>, preferredId?: string) => {
     const newItem: WatchHistoryItem = {
       ...item,
-      id: crypto.randomUUID(),
+      id: preferredId || crypto.randomUUID(),
       updatedAt: Date.now(),
     };
 
@@ -50,7 +51,7 @@ export function useWatchHistory() {
       newHistory = [newItem, ...history];
     } else {
       const existingIndex = history.findIndex(
-        (h) => h.sourceType === newItem.sourceType && h.sourceValue === newItem.sourceValue
+        (h) => (preferredId && h.id === preferredId) || (h.sourceType === newItem.sourceType && h.sourceValue === newItem.sourceValue)
       );
 
       newHistory = [...history];
@@ -58,7 +59,12 @@ export function useWatchHistory() {
         // Update existing entry and move to top
         const existingItem = newHistory[existingIndex];
         newHistory.splice(existingIndex, 1);
-        newHistory.unshift({ ...existingItem, ...newItem, id: existingItem.id, lastPositionSeconds: item.lastPositionSeconds || existingItem.lastPositionSeconds });
+        newHistory.unshift({ 
+          ...existingItem, 
+          ...newItem, 
+          id: existingItem.id, 
+          lastPositionSeconds: item.lastPositionSeconds || existingItem.lastPositionSeconds 
+        });
       } else {
         // Add new entry
         newHistory.unshift(newItem);
