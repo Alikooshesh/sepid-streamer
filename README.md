@@ -8,6 +8,11 @@ A high-performance PWA video player built with Next.js, Genkit, and Gemini 1.5 F
     - Seamless proxy support for hotlink-protected sources.
     - Persistent URL input across navigation and sessions.
     - Robust error reporting for failed video loads.
+    - **Keyboard Shortcuts:**
+        - `ArrowLeft`: Seek back 5 seconds.
+        - `ArrowRight`: Seek forward 5 seconds.
+        - `ArrowUp`: Increase volume.
+        - `ArrowDown`: Decrease volume.
 
 - [x] **Subtitles & Audio:**
     - Load external .vtt or .srt subtitle files.

@@ -84,6 +84,42 @@ export function VideoPlayer({
     onErrorRef.current(message);
   }, []);
 
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input or textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return;
+      }
+
+      const video = videoRef.current;
+      if (!video) return;
+
+      switch (e.key) {
+        case "ArrowLeft":
+          e.preventDefault();
+          video.currentTime = Math.max(0, video.currentTime - 5);
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 5);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          video.volume = Math.min(1, video.volume + 0.1);
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          video.volume = Math.max(0, video.volume - 0.1);
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
