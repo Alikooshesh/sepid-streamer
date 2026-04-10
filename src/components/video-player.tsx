@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useRef, useEffect, useCallback } from "react";
@@ -57,11 +56,9 @@ export function VideoPlayer({
     if (!video) return;
 
     try {
-      // Browsers restrict access to track lists for cross-origin media without CORS.
-      // We try-catch to avoid crashing if access is denied.
+      // Accessing internal tracks for cross-origin URLs WITHOUT crossOrigin="anonymous" 
+      // is restricted by modern browsers. This will often return empty lists.
       const textTracks = video.textTracks ? Array.from(video.textTracks).filter(t => t.kind === 'subtitles' || t.kind === 'captions') : [];
-      
-      // audioTracks is a non-standard API supported in some browsers (e.g. Safari, or Chrome with flags)
       const audioTracks = (video as any).audioTracks ? Array.from((video as any).audioTracks) as AudioTrack[] : [];
       
       onInternalTracksChangeRef.current({
@@ -69,8 +66,6 @@ export function VideoPlayer({
           audio: audioTracks,
       });
     } catch (e) {
-      // Inaccessible due to browser security restrictions on cross-origin media.
-      // We just report empty lists to the custom UI.
       onInternalTracksChangeRef.current({ text: [], audio: [] });
     }
   }, []);
@@ -81,18 +76,10 @@ export function VideoPlayer({
 
     let message = `An unknown error occurred. Code: ${video.error.code}.`;
     switch (video.error.code) {
-      case 1: /* MEDIA_ERR_ABORTED */
-        message = 'The video download was aborted.';
-        break;
-      case 2: /* MEDIA_ERR_NETWORK */
-        message = 'A network error caused the video download to fail.';
-        break;
-      case 3: /* MEDIA_ERR_DECODE */
-        message = 'The video could not be decoded, possibly due to corruption or unsupported features.';
-        break;
-      case 4: /* MEDIA_ERR_SRC_NOT_SUPPORTED */
-        message = 'The video could not be loaded. The format may not be supported or the server/network failed.';
-        break;
+      case 1: message = 'The video download was aborted.'; break;
+      case 2: message = 'A network error caused the video download to fail.'; break;
+      case 3: message = 'The video could not be decoded, possibly due to corruption or unsupported features.'; break;
+      case 4: message = 'The video could not be loaded. The format may not be supported or the server/network failed.'; break;
     }
     onErrorRef.current(message);
   }, []);
@@ -116,14 +103,12 @@ export function VideoPlayer({
     video.addEventListener('canplay', reportTracks);
     video.addEventListener('play', reportTracks);
     
-    // Listen for track changes directly
     if (video.textTracks) {
       video.textTracks.addEventListener('addtrack', reportTracks);
       video.textTracks.addEventListener('change', reportTracks);
     }
     
-    // Poll more aggressively initially to catch tracks as they load
-    const pollInterval = setInterval(reportTracks, 1000);
+    const pollInterval = setInterval(reportTracks, 2000);
 
     return () => {
         video.removeEventListener('loadedmetadata', handleLoadedMetadata);
@@ -138,13 +123,11 @@ export function VideoPlayer({
     }
   }, [historyItem, reportTracks]);
 
-
   useEffect(() => {
     if (videoRef.current) {
       if (src && videoRef.current.src !== src) {
         videoRef.current.src = src;
         videoRef.current.load();
-        // Reset track lists immediately when source changes
         onInternalTracksChangeRef.current({ text: [], audio: [] });
       } else if (!src && videoRef.current.src) {
         videoRef.current.removeAttribute('src');
@@ -153,7 +136,6 @@ export function VideoPlayer({
       }
     }
   }, [src]);
-
 
   useEffect(() => {
     const video = videoRef.current;
@@ -212,7 +194,7 @@ export function VideoPlayer({
     if (video.paused) {
         syncPause();
     } else {
-        syncPlay().catch(e => console.error("Audio sync play failed", e));
+        syncPlay().catch(() => {});
     }
 
     return () => {
@@ -235,9 +217,7 @@ export function VideoPlayer({
           track.mode = trackLabel === activeTextTrackLabel ? 'showing' : 'hidden';
         }
       }
-    } catch (e) {
-      // Inaccessible due to CORS restrictions
-    }
+    } catch (e) {}
   }, [activeTextTrackLabel]);
 
   useEffect(() => {
@@ -250,9 +230,7 @@ export function VideoPlayer({
           track.enabled = track.id === activeAudioTrackId;
         }
       }
-    } catch (e) {
-      // Inaccessible
-    }
+    } catch (e) {}
   }, [activeAudioTrackId]);
 
   useEffect(() => {
@@ -261,19 +239,13 @@ export function VideoPlayer({
 
     const adjustTrack = (track: TextTrack) => {
         if ((track.kind !== 'subtitles' && track.kind !== 'captions') || !track.cues) return;
-
         const trackId = track.label || track.language || 'unknown';
-        
         if (!originalCueTimesRef.current.has(trackId)) {
             const originalTimes = Array.from(track.cues).map(cue => ({ startTime: cue.startTime, endTime: cue.endTime }));
-            if (originalTimes.length > 0) {
-              originalCueTimesRef.current.set(trackId, originalTimes);
-            }
+            if (originalTimes.length > 0) originalCueTimesRef.current.set(trackId, originalTimes);
         }
-
         const originalTimesForTrack = originalCueTimesRef.current.get(trackId);
         if (!originalTimesForTrack) return;
-
         for (let i = 0; i < track.cues.length; i++) {
           const cue = track.cues[i] as VTTCue;
           const original = originalTimesForTrack[i];
@@ -286,20 +258,12 @@ export function VideoPlayer({
 
     try {
       const activeTrack = Array.from(video.textTracks).find(t => t.mode === 'showing');
-
       if (activeTrack) {
-          if (activeTrack.cues && activeTrack.cues.length > 0) {
-              adjustTrack(activeTrack);
-          } else {
-              activeTrack.addEventListener('load', () => adjustTrack(activeTrack), { once: true });
-          }
+          if (activeTrack.cues && activeTrack.cues.length > 0) adjustTrack(activeTrack);
+          else activeTrack.addEventListener('load', () => adjustTrack(activeTrack), { once: true });
       }
-    } catch (e) {
-      // Inaccessible
-    }
-    
+    } catch (e) {}
   }, [subtitleOffset, subtitleRate, activeTextTrackLabel]);
-
 
   useEffect(() => {
     originalCueTimesRef.current.clear();

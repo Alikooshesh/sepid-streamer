@@ -3,7 +3,7 @@
  * @fileOverview AI Series Generation Flow
  *
  * This flow analyzes a single episode URL to identify its pattern and
- * generates a full list of episode URLs for the same season.
+ * generates a full list of episode URLs for the same season using Gemini 1.5 Flash.
  */
 
 import { ai } from '@/ai/genkit';
@@ -36,6 +36,7 @@ const generateSeriesFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await ai.generate({
+      model: 'googleai/gemini-1.5-flash',
       prompt: `You are an expert at identifying media URL patterns. 
       Analyze this episode URL: ${input.url}
       

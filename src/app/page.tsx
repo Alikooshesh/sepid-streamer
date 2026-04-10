@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, Suspense, useCallback } from "react";
@@ -91,7 +90,6 @@ function HomePageContent() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AnalyzeVideoOutput | null>(null);
 
-
   const resetSubtitleTiming = useCallback(() => {
     setSubtitleOffset(0);
     setSubtitleRate(1);
@@ -121,25 +119,13 @@ function HomePageContent() {
   }, [currentItem?.id, resetMediaAttachments]);
 
   useEffect(() => {
-    return () => {
-      setSubtitles(prev => {
-        prev.forEach(sub => URL.revokeObjectURL(sub.src));
-        return [];
-      });
-      setAudioTrack(prev => {
-        if (prev) URL.revokeObjectURL(prev.url);
-        return null;
-      });
-    };
-  }, []);
-
-  useEffect(() => {
     const historyId = searchParams.get('historyId');
     if (historyId) {
       const item = history.find(h => h.id === historyId);
       if (item) {
         setCurrentItem(item);
         if (item.sourceType === 'url') {
+          // Sync URL input when resuming from history
           setUrlInput(item.sourceValue);
         }
         router.replace('/', { scroll: false });
@@ -157,6 +143,7 @@ function HomePageContent() {
       lastPositionSeconds: 0,
     });
     setCurrentItem(newItem);
+    // URL input is NOT cleared, as per user request.
   };
 
   const handleProxyLoad = () => {
@@ -189,6 +176,7 @@ function HomePageContent() {
         lastPositionSeconds: 0,
       });
       setCurrentItem(newItem);
+      setUrlInput(""); // Clear URL input when a local file is loaded
     }
     event.target.value = ""; 
   };
@@ -376,7 +364,6 @@ function HomePageContent() {
     }
   };
 
-
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <AppHeader />
@@ -498,7 +485,6 @@ function HomePageContent() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-
                     {(internalTextTracks.length > 0 || subtitles.length > 0) && (
                       <div className="space-y-2">
                         <Label>Active Subtitle</Label>

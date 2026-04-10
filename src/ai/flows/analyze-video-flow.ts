@@ -3,7 +3,7 @@
  * @fileOverview AI Video Analysis Flow
  *
  * This flow analyzes a video based on its title and URL to provide a summary, 
- * simulated transcript, and suggested video chapters.
+ * simulated transcript, and suggested video chapters using Gemini 1.5 Flash.
  */
 
 import { ai } from '@/ai/genkit';
@@ -38,6 +38,7 @@ const analyzeVideoFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await ai.generate({
+      model: 'googleai/gemini-1.5-flash',
       prompt: `You are an expert video analyst. Analyze the following video: 
       
       Title: ${input.title}

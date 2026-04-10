@@ -1,26 +1,24 @@
-# Firebase Studio
+# Next Video Player
 
-This is a NextJS starter in Firebase Studio.
-
-To get started, take a look at src/app/page.tsx.
+A high-performance PWA video player built with Next.js, Genkit, and Gemini 1.5 Flash.
 
 ## Features Implemented
 
-- [x] **Implement Subtitles:**
-    - Functionality to load subtitle files (.vtt or .srt).
-    - Support for embedded text tracks in video files.
-    - Timing controls (delay and playback rate).
+- [x] **Advanced Playback Controls:**
+    - Seamless proxy support for hotlink-protected sources.
+    - Persistent URL input across navigation and sessions.
+    - Robust error reporting for failed video loads.
 
-- [x] **Implement Separate Audio Tracks:**
-    - Functionality to load separate audio files.
-    - Support for multiple embedded audio tracks.
-    - Full synchronization between video and audio playback.
+- [x] **Subtitles & Audio:**
+    - Load external .vtt or .srt subtitle files.
+    - Native browser support for embedded CC/Audio tracks.
+    - Precise timing controls (offset and playback rate).
 
-- [x] **Build the Series Page:**
-    - Group videos into a series, manage series, and play them in order.
-    - Persistent storage using local storage.
+- [x] **Collections Management:**
+    - Group videos into Series and Seasons.
+    - Resume playback from where you left off.
+    - Persistent storage using LocalStorage.
 
-- [x] **AI-Powered Features:**
-    - Use Genkit and Gemini to generate video summaries.
-    - Automatically create video chapters with timestamps.
-    - Provide a transcript overview of the video content.
+- [x] **GenAI Intelligence:**
+    - **Video Analysis:** Automatic summary, transcript, and chapters using Gemini 1.5 Flash.
+    - **Series Generator:** Automatically predict full season episode URLs from a single link pattern.
