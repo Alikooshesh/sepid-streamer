@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Next Video Player Extension",
+  "version": "1.0",
+  "description": "Quick access to your Next Video Player in a side panel.",
+  "permissions": ["sidePanel", "tabs"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_title": "Click to open Next Video Player"
+  },
+  "side_panel": {
+    "default_path": "https://next-video-player.web.app"
+  }
+}

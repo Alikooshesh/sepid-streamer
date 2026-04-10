@@ -8,10 +8,22 @@ const pwaConfig = {
   register: true,
   skipWaiting: true,
   disable: isDev,
+  runtimeCaching: [
+    {
+      urlPattern: /^https:\/\/picsum\.photos\/.*/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'external-images',
+        expiration: {
+          maxEntries: 50,
+          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 Days
+        },
+      },
+    },
+  ],
 };
 
 const nextConfig: NextConfig = {
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
